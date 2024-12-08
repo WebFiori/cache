@@ -1,0 +1,7 @@
+/vendor/
+/nbproject/private/
+/webfiori/cache/cache
+.php-cs-fixer.cache
+composer.lock
+/nbproject
+tests/.phpunit.result.cache
