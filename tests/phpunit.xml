@@ -15,7 +15,7 @@
     </logging>
     <testsuites>
         <testsuite name="General Tests">
-            <directory>./webfiori/test/cache/CacheTest</directory>
+            <directory>./webfiori/test/cache</directory>
         </testsuite>
     </testsuites>
 </phpunit>
