@@ -1,8 +1,12 @@
 {
     "name": "webfiori/cache",
     "description": "A simple caching engine which is highly customizable.",
-    "version":"0.1",
-    "keywords":["Cache", "File Cache", "Customizable"],
+    "version": "1.0.0",
+    "keywords": [
+        "Cache",
+        "File Cache",
+        "Customizable"
+    ],
     "type": "library",
     "license": "MIT",
     "autoload": {
