@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit colors="true" bootstrap="bootstrap.php">
+    <php>
+    </php>
+    <filter>
+        <whitelist addUncoveredFilesFromWhitelist="true">
+            <file>../webfiori/cache/Cache.php</file>
+            <file>../webfiori/cache/Item.php</file>
+            <file>../webfiori/cache/Storage.php</file>
+            <file>../webfiori/cache/FileStorage.php</file>
+        </whitelist>
+    </filter>
+    <logging>
+        <log type="coverage-clover" target="clover.xml"/>
+    </logging>
+    <testsuites>
+        <testsuite name="General Tests">
+            <directory>./webfiori/test/cache/CacheTest</directory>
+        </testsuite>
+    </testsuites>
+</phpunit>
