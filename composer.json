@@ -10,5 +10,7 @@
             "webfiori\\cache\\": "webfiori/cache/"
         }
     },
-    "require": {}
+    "require": {
+        "psr/cache":"v3.0.0"
+    }
 }

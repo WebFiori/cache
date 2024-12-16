@@ -10,15 +10,21 @@
  */
 namespace webfiori\cache;
 
+use DateInterval;
+use DateTimeInterface;
+use Override;
+use Psr\Cache\CacheItemInterface;
+
 /**
  * A class which represent a cache item.
  */
-class Item {
+class Item implements CacheItemInterface {
     private $createdAt;
     private $data;
     private $key;
     private $secretKey;
     private $timeToLive;
+    private $isHit;
     /**
      * Creates new instance of the class.
      *
@@ -32,12 +38,13 @@ class Item {
      * @param string $secretKey A secret key which is used during encryption
      * and decryption phases of cache storage and retrieval.
      */
-    public function __construct(string $key = 'item', $data = '', int $ttl = 60, string $secretKey = '') {
+    public function __construct(string $key = 'item', $data = '', int $ttl = 0, string $secretKey = '') {
         $this->setKey($key);
         $this->setTTL($ttl);
         $this->setData($data);
         $this->setSecret($secretKey);
         $this->setCreatedAt(time());
+        $this->isHit = false;
     }
     /**
      * Generates a cryptographic secure key.
@@ -132,7 +139,7 @@ class Item {
      * Must be a positive value.
      */
     public function setCreatedAt(int $time) {
-        if ($time > 0) {
+        if ($time >= 0) {
             $this->createdAt = $time;
         }
     }
@@ -145,6 +152,7 @@ class Item {
      */
     public function setData($data) {
         $this->data = $data;
+        $this->isHit = true;
     }
     /**
      * Sets the key of the item.
@@ -168,11 +176,15 @@ class Item {
     /**
      * Sets the duration at which the item will be kept in cache in seconds.
      *
-     * @param int $ttl Time-to-live of the item in cache.
+     * @param int $ttl Time-to-live of the item in cache. If negative value
+     * provided, TTL will be set to -1 (meaning expired item)
      */
     public function setTTL(int $ttl) {
+        
         if ($ttl >= 0) {
             $this->timeToLive = $ttl;
+        } else {
+            $this->timeToLive = -1;
         }
     }
 
@@ -194,5 +206,49 @@ class Item {
         $encoded = base64_encode($iv.$encryptedData);
 
         return $encoded;
+    }
+
+    #[Override]
+    public function expiresAfter(int|DateInterval|null $time): static {
+        if ($time === null) {
+            $this->setTTL(0);
+        } else if ($time instanceof \DateInterval) {
+            $this->setTTL($this->dateIntervalToSeconds($time));
+        }
+        return $this;
+    }
+    private function dateIntervalToSeconds(DateInterval $interval): int {
+        $seconds = $interval->s;
+        $minutes = $interval->i * 60;
+        $hours = $interval->h * 60 * 60;
+        $days = $interval->d * 24 * 60 * 60;
+
+        return $seconds + $minutes + $hours + $days;
+    }
+    #[Override]
+    public function expiresAt(?DateTimeInterface $expiration): static {
+        if ($expiration === null) {
+            $this->setTTL(0);
+        } else {
+            $time = $expiration->getTimestamp();
+            $this->setTTL($time - time());
+        }
+        return $this;
+    }
+
+    #[Override]
+    public function get(): mixed {
+        return $this->getDataDecrypted();
+    }
+
+    #[Override]
+    public function isHit(): bool {
+        return $this->isHit;
+    }
+
+    #[Override]
+    public function set(mixed $value): static {
+        $this->setData($value);
+        return $this;
     }
 }

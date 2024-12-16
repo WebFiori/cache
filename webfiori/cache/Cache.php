@@ -10,10 +10,13 @@
  */
 namespace webfiori\cache;
 
+use Psr\Cache\CacheItemInterface;
+use Psr\Cache\CacheItemPoolInterface;
+
 /**
  * A class which is used to manage cache related operations
  */
-class Cache {
+class Cache implements CacheItemPoolInterface {
     /**
      *
      * @var Storage
@@ -21,23 +24,27 @@ class Cache {
     private $driver;
     private static $inst;
     private $isEnabled;
+    private $deferredItems;
     /**
      * Removes an item from the cache given its unique identifier.
      *
      * @param string $key
      */
-    public static function delete(string $key) {
-        self::getDriver()->delete($key);
+    public function delete(string $key) {
+        $this->getStorage()->delete($key);
+        if (isset($this->deferredItems[$key])) {
+            unset($this->deferredItems[$key]);
+        }
     }
     /**
      * Removes all items from the cache.
      */
-    public static function flush() {
-        self::getDriver()->flush();
+    public function flush() {
+        $this->getStorage()->flush();
+        $this->deferredItems = [];
     }
     /**
      * Returns or creates a cache item given its key.
-     *
      *
      * @param string $key The unique identifier of the item.
      *
@@ -51,8 +58,11 @@ class Cache {
      * which is used to generate cache data.
      * @return null
      */
-    public static function get(string $key, callable $generator = null, int $ttl = 60, array $params = []) {
-        $data = self::getDriver()->read($key);
+    public function get(string $key, callable $generator = null, int $ttl = 60, array $params = []) {
+        if (isset($this->deferredItems[$key])) {
+            return $this->deferredItems[$key]->getData();
+        }
+        $data = $this->getStorage()->read($key);
 
         if ($data !== null && $data !== false) {
             return $data;
@@ -63,9 +73,9 @@ class Cache {
         }
         $newData = call_user_func_array($generator, $params);
 
-        if (self::isEnabled()) {
+        if ($this->isEnabled()) {
             $item = new Item($key, $newData, $ttl, defined('CACHE_SECRET') ? CACHE_SECRET : '');
-            self::getDriver()->store($item);
+            $this->saveDeferred($item);
         }
 
         return $newData;
@@ -76,8 +86,8 @@ class Cache {
      *
      * @return Storage
      */
-    public static function getDriver() : Storage {
-        return self::getInst()->driver;
+    public function getStorage() : Storage {
+        return $this->driver;
     }
     /**
      * Reads an item from the cache and return its information.
@@ -88,8 +98,11 @@ class Cache {
      * of type 'Item' is returned which has all cached item information. Other
      * than that, null is returned.
      */
-    public static function getItem(string $key) {
-        return self::getDriver()->readItem($key);
+    public function getItem(string $key) {
+        if (isset($this->deferredItems[$key])) {
+            return $this->deferredItems[$key];
+        }
+        return $this->getStorage()->readItem($key);
     }
     /**
      * Checks if the cache has in item given its unique identifier.
@@ -99,16 +112,16 @@ class Cache {
      * @return bool If the item exist and is not yet expired, true is returned.
      * Other than that, false is returned.
      */
-    public static function has(string $key) : bool {
-        return self::getDriver()->has($key);
+    public function has(string $key) : bool {
+        return $this->getStorage()->has($key);
     }
     /**
      * Checks if caching is enabled or not.
      * 
      * @return bool True if enabled. False otherwise.
      */
-    public static function isEnabled() : bool {
-        return self::getInst()->isEnabled;
+    public function isEnabled() : bool {
+        return $this->isEnabled;
     }
     /**
      * Creates new item in the cache.
@@ -130,10 +143,10 @@ class Cache {
      * @return bool If successfully added, the method will return true. False
      * otherwise.
      */
-    public static function set(string $key, $data, int $ttl = 60, bool $override = false) : bool {
-        if (!self::has($key) || $override === true) {
+    public function set(string $key, $data, int $ttl = 60, bool $override = false) : bool {
+        if (!$this->has($key) || $override === true) {
             $item = new Item($key, $data, $ttl, defined('CACHE_SECRET') ? CACHE_SECRET : '');
-            self::getDriver()->store($item);
+            $this->getStorage()->store($item);
 
             return true;
         }
@@ -146,8 +159,8 @@ class Cache {
      *
      * @param Storage $driver
      */
-    public static function setDriver(Storage $driver) {
-        self::getInst()->driver = $driver;
+    public function setDriver(Storage $driver) {
+        $this->driver = $driver;
     }
     /**
      * Enable or disable caching.
@@ -155,8 +168,8 @@ class Cache {
      * @param bool $enable If set to true, caching will be enabled. Other than
      * that, caching will be disabled.
      */
-    public static function setEnabled(bool $enable) {
-        self::getInst()->isEnabled = $enable;
+    public function setEnabled(bool $enable) {
+        $this->isEnabled = $enable;
     }
     /**
      * Updates TTL of specific cache item.
@@ -168,29 +181,81 @@ class Cache {
      * @return bool If item is updated, true is returned. Other than that, false
      * is returned.
      */
-    public static function setTTL(string $key, int $ttl) {
-        $item = self::getItem($key);
+    public function setTTL(string $key, int $ttl) {
+        $item = $this->getItem($key);
 
         if ($item === null) {
             return false;
         }
         $item->setTTL($ttl);
-        self::getDriver()->store($item);
+        $this->getStorage()->store($item);
 
         return true;
+    }
+    public function __construct() {
+        $this->driver = new FileStorage(__DIR__.DIRECTORY_SEPARATOR.'cache');
+        $this->isEnabled = true;
+        $this->deferredItems = [];
     }
     /**
      * Creates and returns a single instance of the class.
      *
      * @return Cache
      */
-    private static function getInst() : Cache {
+    public static function getInstance() : Cache {
         if (self::$inst === null) {
             self::$inst = new Cache();
-            self::setDriver(new FileStorage(__DIR__.DIRECTORY_SEPARATOR.'cache'));
-            self::setEnabled(true);
         }
 
         return self::$inst;
+    }
+
+
+    #[\Override]
+    public function clear(): bool {
+        $this->flush();
+    }
+
+    #[\Override]
+    public function commit(): bool {
+        foreach ($this->deferredItems as $item) {
+            $this->getStorage()->store($item);
+        }
+    }
+
+    #[\Override]
+    public function deleteItem(string $key): bool {
+        $this->delete($key);
+    }
+
+    #[\Override]
+    public function deleteItems(array $keys): bool {
+        foreach ($keys as $key) {
+            $this->deleteItem($key);
+        }
+    }
+
+    #[\Override]
+    public function getItems(string $keys = []): iterable {
+        $itemsArr = [];
+        foreach ($keys as $key) {
+            $itemsArr[$key] = $this->getItem($key);
+        }
+        return $itemsArr;
+    }
+
+    #[\Override]
+    public function hasItem(string $key): bool {
+        return $this->getItem($key) !== null;
+    }
+
+    #[\Override]
+    public function save(CacheItemInterface $item): bool {
+        $this->getStorage()->store($item);
+    }
+
+    #[\Override]
+    public function saveDeferred(CacheItemInterface $item): bool {
+        $this->deferredItems[$item->getKey()] = $item;
     }
 }

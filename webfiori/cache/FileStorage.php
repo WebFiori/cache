@@ -71,7 +71,9 @@ class FileStorage implements Storage {
      * key exist in the cache and not yet expired.
      */
     public function has(string $key): bool {
-        return $this->read($key) !== null;
+        $filePath = $this->cacheDir.DIRECTORY_SEPARATOR.md5($key).'.cache';
+
+        return file_exists($filePath);
     }
     /**
      * Reads and returns the data stored in cache item given its key.
@@ -103,12 +105,13 @@ class FileStorage implements Storage {
         $this->initData($key);
         $now = time();
 
-        if ($now > $this->data['expires']) {
+        if ($this->data['expires'] != 0 && $now > $this->data['expires']) {
             $this->delete($key);
 
             return null;
         }
         $item = new Item($key, $this->data['data'], $this->data['ttl'], defined('CACHE_SECRET') ? CACHE_SECRET : '');
+        $item->setData($this->data['data']);
         $item->setCreatedAt($this->data['created_at']);
 
         return $item;
@@ -129,16 +132,16 @@ class FileStorage implements Storage {
      * @param Item $item An item that will be added to the cache.
      */
     public function store(Item $item) {
-        if ($item->getTTL() > 0) {
+        if ($item->getTTL() >= 0) {
             $filePath = $this->getPath().DIRECTORY_SEPARATOR.md5($item->getKey()).'.cache';
             $encryptedData = $item->getDataEncrypted();
             $storageFolder = $this->getPath();
 
-                if (!is_dir($storageFolder)) {
-                    if (!mkdir($storageFolder, 0755, true)) {
-                        throw new InvalidArgumentException("Invalid cache path: '".$storageFolder."'.");
-                    }
+            if (!is_dir($storageFolder)) {
+                if (!mkdir($storageFolder, 0755, true)) {
+                    throw new InvalidArgumentException("Invalid cache path: '".$storageFolder."'.");
                 }
+            }
             file_put_contents($filePath, serialize([
                 'data' => $encryptedData,
                 'created_at' => time(),
