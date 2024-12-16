@@ -31,8 +31,10 @@ class CacheTest extends TestCase {
         $this->assertEquals('This is a test.', $data);
         $this->assertTrue(Cache::has($key));
         sleep(6);
+        $this->assertTrue(Cache::has($key));
+        Cache::getItem($key);
         $this->assertFalse(Cache::has($key));
-        $this->assertNull(Cache::get($key));
+        
     }
     /**
      * @test
@@ -66,8 +68,12 @@ class CacheTest extends TestCase {
         $item = Cache::getItem($key);
         $this->assertEquals(1000, $item->getTTL());
         Cache::delete($key);
-        $this->assertNull(Cache::getItem($key));
+        $item = Cache::getItem($key);
+        $this->assertEquals(-1, $item->getTTL());
     }
+    /**
+     * @test
+     */
     public function test05() {
         $keys = [];
         for ($x = 0 ; $x < 10 ; $x++) {
@@ -80,7 +86,7 @@ class CacheTest extends TestCase {
         foreach ($keys as $key) {
             $this->assertTrue(Cache::has($key));
         }
-        Cache::flush();
+        Cache::clear();
         foreach ($keys as $key) {
             $this->assertFalse(Cache::has($key));
         }
@@ -106,17 +112,17 @@ class CacheTest extends TestCase {
         $key = 'new_cool_key';
         Cache::setEnabled(true);
         $this->assertTrue(Cache::isEnabled());
-        $this->assertTrue(Cache::set($key, 'This is a test.', 60, false));
+        $this->assertTrue(Cache::save($key, 'This is a test.', 60, false));
         $this->assertEquals('This is a test.', Cache::get($key));
         $item = Cache::getItem($key);
         $this->assertEquals(60, $item->getTTL());
         
-        $this->assertFalse(Cache::set($key, 'This is a test.', 60, false));
+        $this->assertFalse(Cache::save($key, 'This is a test.', 60, false));
         $this->assertEquals('This is a test.', Cache::get($key));
         $item = Cache::getItem($key);
         $this->assertEquals(60, $item->getTTL());
         
-        $this->assertTrue(Cache::set($key, 'This is a test 2.', 660, true));
+        $this->assertTrue(Cache::save($key, 'This is a test 2.', 660, true));
         $this->assertEquals('This is a test 2.', Cache::get($key));
         $item = Cache::getItem($key);
         $this->assertEquals(660, $item->getTTL());
@@ -128,7 +134,7 @@ class CacheTest extends TestCase {
         $key = 'new_cool_key2';
         Cache::setEnabled(true);
         $this->assertTrue(Cache::isEnabled());
-        $this->assertTrue(Cache::set($key, 'This is a test.', 60, false));
+        $this->assertTrue(Cache::save($key, 'This is a test.', 60, false));
         $item = Cache::getItem($key);
         $this->assertEquals(60, $item->getTTL());
         Cache::setTTL($key, 700);
@@ -142,5 +148,23 @@ class CacheTest extends TestCase {
     public function testSetTTL01() {
         $key = 'not exist cool';
         $this->assertFalse(Cache::setTTL($key, 700));
+    }
+    /**
+     * @test
+     */
+    public function testCommit00() {
+        $keys = [];
+        for ($x = 0 ; $x < 10 ; $x++) {
+            $key = 'item_'.$x;
+            Cache::get($key, function ($x) {
+                return 'This is a test #'.$x.'.';
+            }, 600, [$x]);
+            $keys[] = $key;
+        }
+        foreach ($keys as $key) {
+            $this->assertTrue(Cache::has($key));
+        }
+        $this->assertTrue(Cache::commit());
+        $this->assertEquals('This is a test #0.', Cache::get('item_0'));
     }
 }

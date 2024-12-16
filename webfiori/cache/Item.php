@@ -12,6 +12,7 @@ namespace webfiori\cache;
 
 use DateInterval;
 use DateTimeInterface;
+use Exception;
 use Override;
 use Psr\Cache\CacheItemInterface;
 
@@ -82,7 +83,11 @@ class Item implements CacheItemInterface {
      * @return mixed
      */
     public function getDataDecrypted() {
-        return unserialize($this->decrypt($this->getData()));
+        try {
+            return unserialize($this->decrypt($this->getData()));
+        } catch (Exception $ex) {
+            return $this->getData();
+        }
     }
     /**
      * Returns cache data after performing encryption on it.
