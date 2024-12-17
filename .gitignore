@@ -5,3 +5,4 @@
 composer.lock
 /nbproject
 tests/.phpunit.result.cache
+*.cache

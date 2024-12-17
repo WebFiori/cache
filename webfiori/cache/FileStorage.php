@@ -11,11 +11,13 @@
 namespace webfiori\cache;
 
 use InvalidArgumentException;
+use Override;
+use Psr\Cache\CacheItemInterface;
 
 /**
  * File based cache storage engine.
  */
-class FileStorage implements Storage {
+class FileStorage extends Storage {
     private $cacheDir;
     private $data;
     /**
@@ -28,6 +30,7 @@ class FileStorage implements Storage {
      * stored at.
      */
     public function __construct(string $storagePath) {
+        parent::__construct();
         $this->setPath($storagePath);
     }
     /**
@@ -35,23 +38,27 @@ class FileStorage implements Storage {
      *
      * @param string $key The key of the item.
      */
-    public function delete(string $key) {
+    public function deleteItem(string $key) : bool {
         $filePath = $this->getPath().DIRECTORY_SEPARATOR.md5($key).'.cache';
 
         if (file_exists($filePath)) {
             unlink($filePath);
+            return true;
         }
+        return false;
     }
     /**
      * Removes all cached items.
      *
      */
-    public function flush() {
+    public function clear() : bool {
+        $this->clearDeferredItems();
         $files = glob($this->cacheDir.DIRECTORY_SEPARATOR.'*.cache');
 
         foreach ($files as $file) {
             unlink($file);
         }
+        return true;
     }
     /**
      * Returns a string that represents the path to the folder which is used to
@@ -70,8 +77,10 @@ class FileStorage implements Storage {
      * @return bool Returns true if given
      * key exist in the cache and not yet expired.
      */
-    public function has(string $key): bool {
-        return $this->read($key) !== null;
+    public function hasItem(string $key): bool {
+        $filePath = $this->cacheDir.DIRECTORY_SEPARATOR.md5($key).'.cache';
+
+        return file_exists($filePath);
     }
     /**
      * Reads and returns the data stored in cache item given its key.
@@ -81,10 +90,10 @@ class FileStorage implements Storage {
      * @return mixed|null If cache item is not expired, its data is returned. Other than
      * that, null is returned.
      */
-    public function read(string $key) {
-        $item = $this->readItem($key);
+    public function read(string $key) : mixed {
+        $item = $this->getItem($key);
 
-        if ($item !== null) {
+        if ($item->getTTL() != -1) {
             return $item->getDataDecrypted();
         }
 
@@ -99,16 +108,23 @@ class FileStorage implements Storage {
      * an object of type 'Item' is returned. Other than
      * that, null is returned.
      */
-    public function readItem(string $key) {
+    public function getItem(string $key) : Item {
+        $item = $this->getDeferredItem($key);
+        if ($item !== null) {
+            return $item;
+        }
         $this->initData($key);
         $now = time();
 
-        if ($now > $this->data['expires']) {
-            $this->delete($key);
+        if ($this->data['expires'] != 0 && $now > $this->data['expires']) {
+            Cache::delete($key);
 
-            return null;
         }
         $item = new Item($key, $this->data['data'], $this->data['ttl'], defined('CACHE_SECRET') ? CACHE_SECRET : '');
+        if ($item->getTTL() != -1) {
+            //Update is hit
+            $item->setData($this->data['data']);
+        }
         $item->setCreatedAt($this->data['created_at']);
 
         return $item;
@@ -128,17 +144,18 @@ class FileStorage implements Storage {
      *
      * @param Item $item An item that will be added to the cache.
      */
-    public function store(Item $item) {
-        if ($item->getTTL() > 0) {
+    public function save(CacheItemInterface $item) : bool {
+        
+        if ($item instanceof Item && $item->getTTL() >= 0) {
             $filePath = $this->getPath().DIRECTORY_SEPARATOR.md5($item->getKey()).'.cache';
             $encryptedData = $item->getDataEncrypted();
             $storageFolder = $this->getPath();
 
-                if (!is_dir($storageFolder)) {
-                    if (!mkdir($storageFolder, 0755, true)) {
-                        throw new InvalidArgumentException("Invalid cache path: '".$storageFolder."'.");
-                    }
+            if (!is_dir($storageFolder)) {
+                if (!mkdir($storageFolder, 0755, true)) {
+                    throw new InvalidArgumentException("Invalid cache path: '".$storageFolder."'.");
                 }
+            }
             file_put_contents($filePath, serialize([
                 'data' => $encryptedData,
                 'created_at' => time(),
@@ -146,7 +163,9 @@ class FileStorage implements Storage {
                 'expires' => $item->getExpiryTime(),
                 'key' => $item->getKey()
             ]));
+            return true;
         }
+        return false;
     }
     private function initData(string $key) {
         $filePath = $this->cacheDir.DIRECTORY_SEPARATOR.md5($key).'.cache';
@@ -154,7 +173,7 @@ class FileStorage implements Storage {
         if (!file_exists($filePath)) {
             $this->data = [
                 'expires' => 0,
-                'ttl' => 0,
+                'ttl' => -1,
                 'data' => null,
                 'created_at' => 0,
                 'key' => ''
@@ -164,5 +183,24 @@ class FileStorage implements Storage {
         }
 
         $this->data = unserialize(file_get_contents($filePath));
+    }
+
+    #[Override]
+    public function deleteItems(array $keys): bool {
+        $removed = true;
+        
+        foreach ($keys as $key) {
+            $removed = $removed && $this->deleteItem($key);
+        }
+        return $removed;
+    }
+
+    #[Override]
+    public function getItems(array $keys = []): iterable {
+        $items = [];
+        foreach ($keys as $key) {
+            $items[] = $this->getItem($key);
+        }
+        return $items;
     }
 }

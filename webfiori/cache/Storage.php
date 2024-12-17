@@ -10,72 +10,61 @@
  */
 namespace webfiori\cache;
 
+use Override;
+use Psr\Cache\CacheItemInterface;
+use Psr\Cache\CacheItemPoolInterface;
+
 /**
  * An interface that has the method which must be implemented by any cache engine.
  */
-interface Storage {
-    /**
-     * Removes an item from the cache.
-     *
-     * @param string $key The key of the item.
-     */
-    public function delete(string $key);
-    /**
-     * Removes all cached items.
-     *
-     * This method must be implemented in a way that it removes all cache items
-     * regardless of expiry time.
-     */
-    public function flush();
-    /**
-     * Checks if an item exist in the cache.
-     *
-     * This method must be implemented in a way that it returns true if given
-     * key exist in the cache and not yet expired.
-     *
-     * @param string $key The value of item key.
-     *
-     * @return bool Returns true if given
-     * key exist in the cache and not yet expired.
-     */
-    public function has(string $key) : bool;
-    /**
-     * Reads and returns the data stored in cache item given its key.
-     *
-     * This method should be implemented in a way that it reads cache item
-     * as an object of type 'Item'. Then it should do a check if the cached
-     * item is expired or not. If not expired, its data is returned. Other than
-     * that, null should be returned.
-     *
-     * @param string $key The key of the item.
-     *
-     * @return mixed|null If cache item is not expired, its data is returned. Other than
-     * that, null is returned.
-     */
-    public function read(string $key);
-    /**
-     * Reads cache item as an object given its key.
-     *
-     * @param string $key The unique identifier of the item.
-     *
-     * @return Item|null If cache item exist and is not expired,
-     * an object of type 'Item' should be returned. Other than
-     * that, null is returned.
-     */
-    public function readItem(string $key);
-    /**
-     * Store an item into the cache.
-     *
-     * This method must be implemented in a way that it keeps all needed information
-     * about cached item. Primarily, it must store the following:
-     * <ul>
-     * <li>key</li>
-     * <li>data</li>
-     * <li>time to live</li>
-     * <li>creation time</li>
-     * </ul>
-     *
-     * @param Item $item An item that will be added to the cache.
-     */
-    public function store(Item $item);
+abstract class Storage implements CacheItemPoolInterface {
+    private $deferredItems;
+    
+    public function __construct() {
+        $this->clearDeferredItems();
+    }
+    #[Override]
+    public function saveDeferred(CacheItemInterface $item): bool {
+        $this->deferredItems[$item->getKey()] = $item;
+        return true;
+    }
+    #[Override]
+    public function commit(): bool {
+        $saved = true;
+        foreach ($this->deferredItems as $item) {
+            if ($this->save($item)) {
+                unset($this->deferredItems[$item->getKey()]);
+            } else {
+                $saved = false;
+            }
+            
+        }
+        return $saved;
+    }
+    public function clearDeferredItems() {
+        $this->deferredItems = [];
+    }
+    public function hasDeferred(string $key) : bool {
+        return isset($this->deferredItems[$key]);
+    }
+    public function deleteDeferredItem(string $key) {
+        unset($this->deferredItems[$key]);
+    }
+    public function deleteDeferredItems(array $keys) {
+        foreach ($keys as $key) {
+            $this->deleteDeferredItem($key);
+        }
+    }
+    public function getDeferredItem(string $key) : ?CacheItemInterface {
+        if (!isset($this->deferredItems[$key])) {
+            return null;
+        }
+        $item = $this->deferredItems[$key];
+        $item instanceof Item;
+        if ($item->getExpiryTime() < time()) {
+            $this->deleteDeferredItem($key);
+            return null;
+        }
+        return $item;
+    }
 }

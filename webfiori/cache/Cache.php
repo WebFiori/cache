@@ -27,13 +27,15 @@ class Cache {
      * @param string $key
      */
     public static function delete(string $key) {
-        self::getDriver()->delete($key);
+        self::getDriver()->deleteItem($key);
+        self::getDriver()->deleteDeferredItem($key);
     }
     /**
      * Removes all items from the cache.
      */
-    public static function flush() {
-        self::getDriver()->flush();
+    public static function clear() {
+        self::getDriver()->clear();
+        self::getDriver()->clearDeferredItems();
     }
     /**
      * Returns or creates a cache item given its key.
@@ -49,26 +51,33 @@ class Cache {
      *
      * @param array $params Any additional parameters to be passed to the callback
      * which is used to generate cache data.
-     * @return null
+     * 
+     * @return mixed
      */
-    public static function get(string $key, callable $generator = null, int $ttl = 60, array $params = []) {
-        $data = self::getDriver()->read($key);
-
-        if ($data !== null && $data !== false) {
-            return $data;
+    public static function get(string $key, $default = null, int $ttl = 60, array $params = []) : mixed {
+        $item = self::getDriver()->getItem($key);
+        $data = $default;
+        if ($item !== null) {
+           $decrypted = $item->getDataDecrypted();
+           if ($decrypted !== false) {
+               return $decrypted;
+           }
+           
         }
 
-        if (!is_callable($generator)) {
-            return null;
+        if (is_callable($default)) {
+            $data = call_user_func_array($default, $params);
         }
-        $newData = call_user_func_array($generator, $params);
 
         if (self::isEnabled()) {
-            $item = new Item($key, $newData, $ttl, defined('CACHE_SECRET') ? CACHE_SECRET : '');
-            self::getDriver()->store($item);
+            $item = new Item($key, $data, $ttl, defined('CACHE_SECRET') ? CACHE_SECRET : '');
+            
+            if ($item->getTTL() != -1) {
+                self::getDriver()->saveDeferred($item);
+            }
         }
 
-        return $newData;
+        return $data;
     }
     /**
      * Returns storage engine which is used to store, read, update and delete items
@@ -88,8 +97,11 @@ class Cache {
      * of type 'Item' is returned which has all cached item information. Other
      * than that, null is returned.
      */
-    public static function getItem(string $key) {
-        return self::getDriver()->readItem($key);
+    public static function getItem(string $key) : Item {
+        return self::getDriver()->getItem($key);
+    }
+    public function getItems(array $keys) : iterable {
+        return self::getDriver()->getItems($keys);
     }
     /**
      * Checks if the cache has in item given its unique identifier.
@@ -100,7 +112,18 @@ class Cache {
      * Other than that, false is returned.
      */
     public static function has(string $key) : bool {
-        return self::getDriver()->has($key);
+        return self::getDriver()->hasItem($key) || self::getDriver()->hasDeferred($key);
+    }
+    public static function deleteItems(array $keys) {
+        self::getDriver()->deleteItems($keys);
+        self::getDriver()->deleteDeferredItems($keys);
+    }
+    /**
+     * 
+     * @return bool
+     */
+    public static function commit() : bool {
+        return self::getDriver()->commit();
     }
     /**
      * Checks if caching is enabled or not.
@@ -130,10 +153,10 @@ class Cache {
      * @return bool If successfully added, the method will return true. False
      * otherwise.
      */
-    public static function set(string $key, $data, int $ttl = 60, bool $override = false) : bool {
+    public static function save(string $key, $data, int $ttl = 60, bool $override = false) : bool {
         if (!self::has($key) || $override === true) {
             $item = new Item($key, $data, $ttl, defined('CACHE_SECRET') ? CACHE_SECRET : '');
-            self::getDriver()->store($item);
+            self::getDriver()->save($item);
 
             return true;
         }
@@ -171,11 +194,12 @@ class Cache {
     public static function setTTL(string $key, int $ttl) {
         $item = self::getItem($key);
 
-        if ($item === null) {
+        if ($item->getTTL() == -1) {
+            
             return false;
         }
         $item->setTTL($ttl);
-        self::getDriver()->store($item);
+        self::getDriver()->saveDeferred($item);
 
         return true;
     }
