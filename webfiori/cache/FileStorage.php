@@ -44,10 +44,12 @@ class FileStorage implements Storage {
     }
     /**
      * Removes all cached items.
-     *
+     * 
+     * @param string|null $prefix An optional prefix. If provided, the method will
+     * only delete the items which has given prefix.
      */
-    public function flush() {
-        $files = glob($this->cacheDir.DIRECTORY_SEPARATOR.'*.cache');
+    public function flush(?string $prefix) {
+        $files = glob($this->cacheDir.DIRECTORY_SEPARATOR.$prefix.'*.cache');
 
         foreach ($files as $file) {
             unlink($file);
@@ -70,8 +72,8 @@ class FileStorage implements Storage {
      * @return bool Returns true if given
      * key exist in the cache and not yet expired.
      */
-    public function has(string $key): bool {
-        return $this->read($key) !== null;
+    public function has(string $key, ?string $prefix): bool {
+        return $this->read($key, $prefix) !== null;
     }
     /**
      * Reads and returns the data stored in cache item given its key.
@@ -81,8 +83,8 @@ class FileStorage implements Storage {
      * @return mixed|null If cache item is not expired, its data is returned. Other than
      * that, null is returned.
      */
-    public function read(string $key) {
-        $item = $this->readItem($key);
+    public function read(string $key, ?string $prefix) {
+        $item = $this->readItem($key, $prefix);
 
         if ($item !== null) {
             return $item->getDataDecrypted();
@@ -99,8 +101,8 @@ class FileStorage implements Storage {
      * an object of type 'Item' is returned. Other than
      * that, null is returned.
      */
-    public function readItem(string $key) {
-        $this->initData($key);
+    public function readItem(string $key, ?string $prefix) {
+        $this->initData($key, $prefix);
         $now = time();
 
         if ($now > $this->data['expires']) {
@@ -130,7 +132,7 @@ class FileStorage implements Storage {
      */
     public function store(Item $item) {
         if ($item->getTTL() > 0) {
-            $filePath = $this->getPath().DIRECTORY_SEPARATOR.md5($item->getKey()).'.cache';
+            $filePath = $this->getPath().DIRECTORY_SEPARATOR.$item->getPrefix().md5($item->getKey()).'.cache';
             $encryptedData = $item->getDataEncrypted();
             $storageFolder = $this->getPath();
 
@@ -148,8 +150,8 @@ class FileStorage implements Storage {
             ]));
         }
     }
-    private function initData(string $key) {
-        $filePath = $this->cacheDir.DIRECTORY_SEPARATOR.md5($key).'.cache';
+    private function initData(string $key, string $prefix) {
+        $filePath = $this->cacheDir.DIRECTORY_SEPARATOR.$prefix.md5($key).'.cache';
 
         if (!file_exists($filePath)) {
             $this->data = [
