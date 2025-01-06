@@ -21,6 +21,11 @@ class Cache {
     private $driver;
     private static $inst;
     private $isEnabled;
+    private $prefix;
+    public static function withPrefix(string $prefix) : Cache {
+        self::getInst()->prefix = trim($prefix);
+        return self::getInst();
+    }
     /**
      * Removes an item from the cache given its unique identifier.
      *
@@ -31,9 +36,19 @@ class Cache {
     }
     /**
      * Removes all items from the cache.
+     * 
+     * @param string|null $prefix An optional prefix. If provided, the method should
+     * only delete the items which has given prefix.
      */
     public static function flush() {
-        self::getDriver()->flush();
+        self::getDriver()->flush(self::getPrefix());
+    }
+    /**
+     * 
+     * @return string
+     */
+    public static function getPrefix() : string {
+        return self::getInst()->prefix;
     }
     /**
      * Returns or creates a cache item given its key.
@@ -52,7 +67,7 @@ class Cache {
      * @return null
      */
     public static function get(string $key, callable $generator = null, int $ttl = 60, array $params = []) {
-        $data = self::getDriver()->read($key);
+        $data = self::getDriver()->read($key, self::getPrefix());
 
         if ($data !== null && $data !== false) {
             return $data;
@@ -65,6 +80,7 @@ class Cache {
 
         if (self::isEnabled()) {
             $item = new Item($key, $newData, $ttl, defined('CACHE_SECRET') ? CACHE_SECRET : '');
+            $item->setPrefix(self::getPrefix());
             self::getDriver()->store($item);
         }
 
@@ -89,7 +105,7 @@ class Cache {
      * than that, null is returned.
      */
     public static function getItem(string $key) {
-        return self::getDriver()->readItem($key);
+        return self::getDriver()->readItem($key, self::getPrefix());
     }
     /**
      * Checks if the cache has in item given its unique identifier.
@@ -100,7 +116,7 @@ class Cache {
      * Other than that, false is returned.
      */
     public static function has(string $key) : bool {
-        return self::getDriver()->has($key);
+        return self::getDriver()->has($key, self::getPrefix());
     }
     /**
      * Checks if caching is enabled or not.
@@ -131,6 +147,8 @@ class Cache {
      * otherwise.
      */
     public static function set(string $key, $data, int $ttl = 60, bool $override = false) : bool {
+        $key = self::getPrefix().$key;
+        
         if (!self::has($key) || $override === true) {
             $item = new Item($key, $data, $ttl, defined('CACHE_SECRET') ? CACHE_SECRET : '');
             self::getDriver()->store($item);
@@ -169,6 +187,7 @@ class Cache {
      * is returned.
      */
     public static function setTTL(string $key, int $ttl) {
+        $key = self::getPrefix().$key;
         $item = self::getItem($key);
 
         if ($item === null) {
@@ -189,6 +208,7 @@ class Cache {
             self::$inst = new Cache();
             self::setDriver(new FileStorage(__DIR__.DIRECTORY_SEPARATOR.'cache'));
             self::setEnabled(true);
+            self::withPrefix('');
         }
 
         return self::$inst;
