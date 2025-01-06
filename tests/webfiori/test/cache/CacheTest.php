@@ -80,7 +80,7 @@ class CacheTest extends TestCase {
         foreach ($keys as $key) {
             $this->assertTrue(Cache::has($key));
         }
-        Cache::flush();
+        Cache::flush(null);
         foreach ($keys as $key) {
             $this->assertFalse(Cache::has($key));
         }
@@ -142,5 +142,56 @@ class CacheTest extends TestCase {
     public function testSetTTL01() {
         $key = 'not exist cool';
         $this->assertFalse(Cache::setTTL($key, 700));
+    }
+    /**
+     * @test
+     */
+    public function testWithPrefix00() {
+        $key = 'first';
+        $this->assertTrue(Cache::isEnabled());
+        $data =Cache::withPrefix('ok')->get($key, function () {
+            return 'This is a test.';
+        });
+        $this->assertEquals('This is a test.', $data);
+        $this->assertEquals('This is a test.', Cache::get($key));
+        $this->assertNull(Cache::withPrefix('')->get($key));
+        Cache::delete($key);
+        $this->assertEquals('This is a test.', Cache::withPrefix('ok')->get($key));
+    }
+    /**
+     * @test
+     */
+    public function testWithPrefix01() {
+        $key = 'test-';
+        $key2 = 'ttest-2-';
+        $prefix1 = 'good';
+        $prefix2 = 'bad';
+        
+        for ($x = 0 ; $x < 3 ; $x++) {
+            Cache::withPrefix($prefix1)->get($key.$x, function (int $x, $pfx) {
+                return 'This is a test. '.$x.$pfx;
+            }, 60, [$x, $prefix1]);
+        }
+        for ($x = 0 ; $x < 3 ; $x++) {
+            Cache::withPrefix($prefix2)->get($key2.$x, function (int $x, $pfx) {
+                return 'This is a test. '.$x.$pfx;
+            }, 60, [$x, $prefix2]);
+        }
+        Cache::withPrefix($prefix1);
+        for ($x = 0 ; $x < 3 ; $x++) {
+            $this->assertTrue(Cache::has($key.$x));
+        }
+        Cache::withPrefix($prefix2);
+        for ($x = 0 ; $x < 3 ; $x++) {
+            $this->assertTrue(Cache::has($key2.$x));
+        }
+        Cache::withPrefix($prefix1)->flush();
+        for ($x = 0 ; $x < 3 ; $x++) {
+            $this->assertFalse(Cache::has($key.$x));
+        }
+        Cache::withPrefix($prefix2);
+        for ($x = 0 ; $x < 3 ; $x++) {
+            $this->assertTrue(Cache::has($key2.$x));
+        }
     }
 }

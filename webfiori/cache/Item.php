@@ -19,6 +19,7 @@ class Item {
     private $key;
     private $secretKey;
     private $timeToLive;
+    private $prefix;
     /**
      * Creates new instance of the class.
      *
@@ -38,6 +39,7 @@ class Item {
         $this->setData($data);
         $this->setSecret($secretKey);
         $this->setCreatedAt(time());
+        $this->setPrefix('');
     }
     /**
      * Generates a cryptographic secure key.
@@ -102,7 +104,7 @@ class Item {
      * Gets the key of the item.
      *
      * The key acts as a unique identifier for cache items.
-     *
+     * 
      * @return string A string that represents the key.
      */
     public function getKey() : string {
@@ -155,6 +157,22 @@ class Item {
      */
     public function setKey(string $key) {
         $this->key = $key;
+    }
+    /**
+     * Returns the prefix that will be appended to the key.
+     * 
+     * @return string If no prefix is set, empty string is returned.
+     */
+    public function getPrefix() : string {
+        return $this->prefix;
+    }
+    /**
+     * Sets the prefix that will be appended to the key.
+     * 
+     * @param string $prefix
+     */
+    public function setPrefix(string $prefix) {
+        $this->prefix = trim($prefix.'');
     }
     /**
      * Sets the value of the key which is used in encrypting cache data.

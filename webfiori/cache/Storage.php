@@ -25,8 +25,11 @@ interface Storage {
      *
      * This method must be implemented in a way that it removes all cache items
      * regardless of expiry time.
+     * 
+     * @param string|null $prefix An optional prefix. If provided, the method should
+     * only delete the items which has given prefix.
      */
-    public function flush();
+    public function flush(?string $prefix);
     /**
      * Checks if an item exist in the cache.
      *
@@ -38,7 +41,7 @@ interface Storage {
      * @return bool Returns true if given
      * key exist in the cache and not yet expired.
      */
-    public function has(string $key) : bool;
+    public function has(string $key, ?string $prefix) : bool;
     /**
      * Reads and returns the data stored in cache item given its key.
      *
@@ -52,7 +55,7 @@ interface Storage {
      * @return mixed|null If cache item is not expired, its data is returned. Other than
      * that, null is returned.
      */
-    public function read(string $key);
+    public function read(string $key, ?string $prefix);
     /**
      * Reads cache item as an object given its key.
      *
@@ -62,7 +65,7 @@ interface Storage {
      * an object of type 'Item' should be returned. Other than
      * that, null is returned.
      */
-    public function readItem(string $key);
+    public function readItem(string $key, ?string $prefix);
     /**
      * Store an item into the cache.
      *
