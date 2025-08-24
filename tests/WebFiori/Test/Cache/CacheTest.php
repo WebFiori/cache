@@ -3,9 +3,32 @@ namespace WebFiori\Test\Cache;
 
 use PHPUnit\Framework\TestCase;
 use WebFiori\Cache\Cache;
+use WebFiori\Cache\KeyManager;
+
 /**
+ * Updated test class with security enhancements.
  */
 class CacheTest extends TestCase {
+    
+    protected function setUp(): void {
+        // Set up a test encryption key for consistent testing
+        $testKey = KeyManager::generateKey();
+        $_ENV['CACHE_ENCRYPTION_KEY'] = $testKey;
+        KeyManager::clearCache(); // Force reload from environment
+        
+        // Clean up any existing cache
+        Cache::flush();
+    }
+    
+    protected function tearDown(): void {
+        // Clean up after each test
+        KeyManager::clearCache();
+        Cache::flush();
+        
+        // Clean up environment variables
+        unset($_ENV['CACHE_ENCRYPTION_KEY']);
+    }
+    
     /**
      * @test
      */
@@ -19,6 +42,7 @@ class CacheTest extends TestCase {
         $this->assertEquals('This is a test.', Cache::get($key));
         $this->assertNull(Cache::get('not_cached'));
     }
+    
     /**
      * @test
      */
@@ -34,6 +58,7 @@ class CacheTest extends TestCase {
         $this->assertFalse(Cache::has($key));
         $this->assertNull(Cache::get($key));
     }
+    
     /**
      * @test
      */
@@ -49,6 +74,7 @@ class CacheTest extends TestCase {
         $this->assertFalse(Cache::has($key));
         $this->assertNull(Cache::get($key));
     }
+    
     /**
      * @test
      */
@@ -68,6 +94,10 @@ class CacheTest extends TestCase {
         Cache::delete($key);
         $this->assertNull(Cache::getItem($key));
     }
+    
+    /**
+     * @test
+     */
     public function test05() {
         $keys = [];
         for ($x = 0 ; $x < 10 ; $x++) {
@@ -85,6 +115,7 @@ class CacheTest extends TestCase {
             $this->assertFalse(Cache::has($key));
         }
     }
+    
     /**
      * @test
      */
@@ -99,6 +130,7 @@ class CacheTest extends TestCase {
         $this->assertNull(Cache::get($key));
         $this->assertFalse(Cache::isEnabled());
     }
+    
     /**
      * @test
      */
@@ -121,6 +153,7 @@ class CacheTest extends TestCase {
         $item = Cache::getItem($key);
         $this->assertEquals(660, $item->getTTL());
     }
+    
     /**
      * @test
      */
@@ -136,6 +169,7 @@ class CacheTest extends TestCase {
         $item = Cache::getItem($key);
         $this->assertEquals(700, $item->getTTL());
     }
+    
     /**
      * @test
      */
@@ -143,6 +177,7 @@ class CacheTest extends TestCase {
         $key = 'not exist cool';
         $this->assertFalse(Cache::setTTL($key, 700));
     }
+    
     /**
      * @test
      */
@@ -158,6 +193,7 @@ class CacheTest extends TestCase {
         Cache::delete($key);
         $this->assertEquals('This is a test.', Cache::withPrefix('ok')->get($key));
     }
+    
     /**
      * @test
      */
@@ -193,5 +229,26 @@ class CacheTest extends TestCase {
         for ($x = 0 ; $x < 3 ; $x++) {
             $this->assertTrue(Cache::has($key2.$x));
         }
+    }
+    
+    /**
+     * @test
+     */
+    public function testEncryptionIntegration() {
+        $sensitiveData = 'This is sensitive information';
+        $key = 'sensitive_key';
+        
+        Cache::set($key, $sensitiveData, 60);
+        $retrieved = Cache::get($key);
+        
+        $this->assertEquals($sensitiveData, $retrieved);
+        
+        // Verify data is actually encrypted in storage
+        $item = Cache::getItem($key);
+        $this->assertNotNull($item);
+        
+        // The encrypted data should be different from the original
+        $encryptedData = $item->getDataEncrypted();
+        $this->assertNotEquals(serialize($sensitiveData), $encryptedData);
     }
 }

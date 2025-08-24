@@ -10,6 +10,8 @@
  */
 namespace WebFiori\Cache;
 
+use RuntimeException;
+
 /**
  * A class which is used to manage cache related operations
  */
@@ -22,10 +24,12 @@ class Cache {
     private static $inst;
     private $isEnabled;
     private $prefix;
+    
     public static function withPrefix(string $prefix) : Cache {
         self::getInst()->prefix = trim($prefix);
         return self::getInst();
     }
+    
     /**
      * Removes an item from the cache given its unique identifier.
      *
@@ -34,6 +38,7 @@ class Cache {
     public static function delete(string $key) {
         self::getDriver()->delete($key);
     }
+    
     /**
      * Removes all items from the cache.
      * 
@@ -43,6 +48,7 @@ class Cache {
     public static function flush() {
         self::getDriver()->flush(self::getPrefix());
     }
+    
     /**
      * 
      * @return string
@@ -50,6 +56,7 @@ class Cache {
     public static function getPrefix() : string {
         return self::getInst()->prefix;
     }
+    
     /**
      * Returns or creates a cache item given its key.
      *
@@ -79,13 +86,29 @@ class Cache {
         $newData = call_user_func_array($generator, $params);
 
         if (self::isEnabled()) {
-            $item = new Item($key, $newData, $ttl, defined('CACHE_SECRET') ? CACHE_SECRET : '');
+            // Use KeyManager for encryption key, but continue without encryption if not available
+            $secretKey = '';
+            try {
+                $secretKey = KeyManager::getEncryptionKey();
+            } catch (RuntimeException $e) {
+                // If no key available, disable encryption for this item
+                $item = new Item($key, $newData, $ttl, '');
+                $config = new SecurityConfig();
+                $config->setEncryptionEnabled(false);
+                $item->setSecurityConfig($config);
+                $item->setPrefix(self::getPrefix());
+                self::getDriver()->store($item);
+                return $newData;
+            }
+            
+            $item = new Item($key, $newData, $ttl, $secretKey);
             $item->setPrefix(self::getPrefix());
             self::getDriver()->store($item);
         }
 
         return $newData;
     }
+    
     /**
      * Returns storage engine which is used to store, read, update and delete items
      * from the cache.
@@ -95,6 +118,7 @@ class Cache {
     public static function getDriver() : Storage {
         return self::getInst()->driver;
     }
+    
     /**
      * Reads an item from the cache and return its information.
      *
@@ -107,6 +131,7 @@ class Cache {
     public static function getItem(string $key) {
         return self::getDriver()->readItem($key, self::getPrefix());
     }
+    
     /**
      * Checks if the cache has in item given its unique identifier.
      *
@@ -118,6 +143,7 @@ class Cache {
     public static function has(string $key) : bool {
         return self::getDriver()->has($key, self::getPrefix());
     }
+    
     /**
      * Checks if caching is enabled or not.
      * 
@@ -126,6 +152,7 @@ class Cache {
     public static function isEnabled() : bool {
         return self::getInst()->isEnabled;
     }
+    
     /**
      * Creates new item in the cache.
      *
@@ -147,10 +174,24 @@ class Cache {
      * otherwise.
      */
     public static function set(string $key, $data, int $ttl = 60, bool $override = false) : bool {
-        $key = self::getPrefix().$key;
-        
         if (!self::has($key) || $override === true) {
-            $item = new Item($key, $data, $ttl, defined('CACHE_SECRET') ? CACHE_SECRET : '');
+            // Use KeyManager for encryption key, but continue without encryption if not available
+            $secretKey = '';
+            try {
+                $secretKey = KeyManager::getEncryptionKey();
+            } catch (RuntimeException $e) {
+                // If no key available, disable encryption for this item
+                $item = new Item($key, $data, $ttl, '');
+                $config = new SecurityConfig();
+                $config->setEncryptionEnabled(false);
+                $item->setSecurityConfig($config);
+                $item->setPrefix(self::getPrefix());
+                self::getDriver()->store($item);
+                return true;
+            }
+            
+            $item = new Item($key, $data, $ttl, $secretKey);
+            $item->setPrefix(self::getPrefix());
             self::getDriver()->store($item);
 
             return true;
@@ -158,6 +199,7 @@ class Cache {
 
         return false;
     }
+    
     /**
      * Sets storage engine which is used to store, read, update and delete items
      * from the cache.
@@ -167,6 +209,7 @@ class Cache {
     public static function setDriver(Storage $driver) {
         self::getInst()->driver = $driver;
     }
+    
     /**
      * Enable or disable caching.
      * 
@@ -176,6 +219,7 @@ class Cache {
     public static function setEnabled(bool $enable) {
         self::getInst()->isEnabled = $enable;
     }
+    
     /**
      * Updates TTL of specific cache item.
      *
@@ -187,7 +231,6 @@ class Cache {
      * is returned.
      */
     public static function setTTL(string $key, int $ttl) {
-        $key = self::getPrefix().$key;
         $item = self::getItem($key);
 
         if ($item === null) {
@@ -198,6 +241,7 @@ class Cache {
 
         return true;
     }
+    
     /**
      * Creates and returns a single instance of the class.
      *
