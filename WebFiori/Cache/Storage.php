@@ -8,7 +8,7 @@
  * https://github.com/WebFiori/.github/blob/main/LICENSE
  *
  */
-namespace webfiori\cache;
+namespace WebFiori\Cache;
 
 /**
  * An interface that has the method which must be implemented by any cache engine.

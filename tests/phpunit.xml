@@ -4,10 +4,10 @@
     </php>
     <filter>
         <whitelist addUncoveredFilesFromWhitelist="true">
-            <file>../webfiori/cache/Cache.php</file>
-            <file>../webfiori/cache/Item.php</file>
-            <file>../webfiori/cache/Storage.php</file>
-            <file>../webfiori/cache/FileStorage.php</file>
+            <file>../WebFiori/Cache/Cache.php</file>
+            <file>../WebFiori/Cache/Item.php</file>
+            <file>../WebFiori/Cache/Storage.php</file>
+            <file>../WebFiori/Cache/FileStorage.php</file>
         </whitelist>
     </filter>
     <logging>
@@ -15,7 +15,7 @@
     </logging>
     <testsuites>
         <testsuite name="General Tests">
-            <directory>./webfiori/test/cache</directory>
+            <directory>./WebFiori/Test/Cache</directory>
         </testsuite>
     </testsuites>
 </phpunit>
