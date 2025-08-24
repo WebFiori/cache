@@ -6,3 +6,4 @@ composer.lock
 /nbproject
 tests/.phpunit.result.cache
 *.Identifier
+/WebFiori/Cache/cache
