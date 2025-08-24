@@ -132,7 +132,7 @@ Cache::setEnabled(false);
 ```
 
 #### Set Custom Cache Store
-Developer can create his own custom cache store. To achieve this, the interface `webfiori\cache\Store` must be implemented.
+Developer can create his own custom cache store. To achieve this, the interface `WebFiori\Cache\Storage` must be implemented.
 
 ```php
 $driver = new MyCustomDriver();

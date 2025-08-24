@@ -1,8 +1,8 @@
 <?php
-namespace webfiori\test\cache;
+namespace WebFiori\Test\Cache;
 
 use PHPUnit\Framework\TestCase;
-use webfiori\cache\Cache;
+use WebFiori\Cache\Cache;
 /**
  */
 class CacheTest extends TestCase {
