@@ -3,7 +3,7 @@
 A simple, secure, and highly customizable caching engine for PHP. This library provides time-based caching with built-in encryption support, making it suitable for application-level, server-level, and database-level caching scenarios.
 
 <p align="center">
-  <a href="https://github.com/WebFiori/cache/actions"><img src="https://github.com/WebFiori/cache/actions/workflows/php84.yml/badge.svg?branch=main"></a>
+  <a href="https://github.com/WebFiori/cache/actions"><img src="https://github.com/WebFiori/cache/actions/workflows/php84.yaml/badge.svg?branch=main"></a>
   <a href="https://codecov.io/gh/WebFiori/cache">
     <img src="https://codecov.io/gh/WebFiori/cache/branch/main/graph/badge.svg" />
   </a>
