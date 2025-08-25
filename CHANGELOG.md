@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.0](https://github.com/WebFiori/cache/compare/v1.1.0...v2.0.0) (2025-08-25)
+
+
+### Miscellaneous Chores
+
+* Fix Code Quality Issues ([14a30fe](https://github.com/WebFiori/cache/commit/14a30fe2c3368a00a0a53da8717a018157e1b66f))
+* Update README.md ([53026ea](https://github.com/WebFiori/cache/commit/53026eaefa39d8240ef12c578e04e981732e3b72))
+
 ## [1.1.0](https://github.com/WebFiori/cache/compare/v1.0.0...v1.1.0) (2025-01-06)
 
 
