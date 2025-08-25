@@ -265,7 +265,7 @@ class FileStorageTest extends TestCase {
         file_put_contents($filePath, 'corrupted_data_not_serializable');
         
         $this->expectException(CacheStorageException::class);
-        $this->expectExceptionMessage('Failed to unserialize cache data');
+        $this->expectExceptionMessage('Failed to unserialize cache data from:');
         
         $storage->readItem($key, '');
     }
