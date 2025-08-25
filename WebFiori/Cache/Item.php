@@ -304,7 +304,7 @@ class Item {
      * @throws RuntimeException If decryption fails
      */
     private function decrypt($data): string {
-        $key = $this->getEffectiveEncryptionKey();
+        $encKey = $this->getEffectiveEncryptionKey();
         
         try {
             $decodedData = base64_decode($data, true);
@@ -322,7 +322,7 @@ class Item {
             $iv = substr($decodedData, 0, $ivLength);
             $encryptedData = substr($decodedData, $ivLength);
             
-            $decrypted = openssl_decrypt($encryptedData, $algorithm, $key, OPENSSL_RAW_DATA, $iv);
+            $decrypted = openssl_decrypt($encryptedData, $algorithm, $encKey, OPENSSL_RAW_DATA, $iv);
             
             if ($decrypted === false) {
                 throw new RuntimeException('Decryption failed');
@@ -373,8 +373,8 @@ class Item {
         
         // Fall back to KeyManager
         try {
-            $key = KeyManager::getEncryptionKey();
-            return hex2bin($key);
+            $encKey = KeyManager::getEncryptionKey();
+            return hex2bin($encKey);
         } catch (Exception $e) {
             throw new RuntimeException('No valid encryption key available: ' . $e->getMessage());
         }

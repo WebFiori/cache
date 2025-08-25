@@ -178,15 +178,13 @@ class FileStorage implements Storage {
             $encryptedData = $item->getDataEncrypted();
             $storageFolder = $this->getPath();
 
-            if (!is_dir($storageFolder)) {
-                if (!mkdir($storageFolder, $securityConfig->getDirectoryPermissions(), true)) {
-                    throw new InvalidArgumentException("Invalid cache path: '".$storageFolder."'.");
-                }
+            if (!is_dir($storageFolder) && !mkdir($storageFolder, $securityConfig->getDirectoryPermissions(), true)) {
+                throw new InvalidArgumentException("Invalid cache path: '".$storageFolder."'.");
             }
             
             // Create temporary file for atomic write
             $tempFile = $filePath . '.tmp';
-            $data = serialize([
+            $dataSer = serialize([
                 'data' => $encryptedData,
                 'created_at' => time(),
                 'ttl' => $item->getTTL(),
@@ -194,7 +192,7 @@ class FileStorage implements Storage {
                 'key' => $item->getKey()
             ]);
             
-            if (file_put_contents($tempFile, $data, LOCK_EX) === false) {
+            if (file_put_contents($tempFile, $dataSer, LOCK_EX) === false) {
                 throw new RuntimeException("Failed to write cache file: $tempFile");
             }
             
