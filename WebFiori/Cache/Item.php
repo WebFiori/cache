@@ -22,10 +22,11 @@ class Item {
     private $data;
     private $key;
     private $secretKey;
-    private $timeToLive;
+    private $timeToLive = 0;
     private $prefix;
     private ?SecurityConfig $securityConfig = null;
     private bool $dataIsEncrypted = false;
+    private bool $dataFromStorage = false;
     
     /**
      * Creates new instance of the class.
@@ -99,18 +100,19 @@ class Item {
      */
     public function getDataDecrypted() {
         if (!$this->dataIsEncrypted) {
-            // Data is not encrypted, return as-is
-            return $this->getData();
+            // Data is not encrypted
+            if ($this->dataFromStorage) {
+                // Data came from storage and is serialized
+                return unserialize($this->getData());
+            } else {
+                // Fresh data, return as-is
+                return $this->getData();
+            }
         }
         
-        if (!$this->securityConfig || !$this->securityConfig->isEncryptionEnabled()) {
-            // If encryption is disabled but data is marked as encrypted, 
-            // it means it's serialized data
-            return unserialize($this->getData());
-        }
-        
-        // Data is encrypted, decrypt it
-        return unserialize($this->decrypt($this->getData()));
+        // Data is encrypted, decrypt it first then unserialize
+        $decryptedData = $this->decrypt($this->getData());
+        return unserialize($decryptedData);
     }
     
     /**
@@ -257,6 +259,15 @@ class Item {
      */
     public function setDataIsEncrypted(bool $encrypted): void {
         $this->dataIsEncrypted = $encrypted;
+    }
+    
+    /**
+     * Sets whether the data came from storage.
+     * 
+     * @param bool $fromStorage True if data came from storage
+     */
+    public function setDataFromStorage(bool $fromStorage): void {
+        $this->dataFromStorage = $fromStorage;
     }
     
     /**

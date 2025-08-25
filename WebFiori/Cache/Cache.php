@@ -13,6 +13,7 @@ namespace WebFiori\Cache;
 use WebFiori\Cache\Exceptions\CacheException;
 use WebFiori\Cache\Exceptions\InvalidCacheKeyException;
 use WebFiori\Cache\Exceptions\CacheDriverException;
+use WebFiori\Cache\Exceptions\CacheStorageException;
 
 /**
  * A class which is used to manage cache related operations
@@ -327,12 +328,22 @@ class Cache {
             $config->setEncryptionEnabled(false);
             $item->setSecurityConfig($config);
             $item->setPrefix(self::getPrefix());
-            self::getDriver()->store($item);
+            try {
+                self::getDriver()->store($item);
+            } catch (CacheStorageException $e) {
+                // Silently fail if storage fails - this allows the application to continue
+                // The data will just not be cached
+            }
             return;
         }
         
         $item = new Item($key, $data, $ttl, $secretKey);
         $item->setPrefix(self::getPrefix());
-        self::getDriver()->store($item);
+        try {
+            self::getDriver()->store($item);
+        } catch (CacheStorageException $e) {
+            // Silently fail if storage fails - this allows the application to continue
+            // The data will just not be cached
+        }
     }
 }

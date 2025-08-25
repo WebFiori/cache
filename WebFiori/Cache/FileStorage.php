@@ -149,15 +149,19 @@ class FileStorage implements Storage {
         $item->setCreatedAt($this->data['created_at']);
         $item->setPrefix($prefix ?? '');
         
-        // Configure encryption based on key availability
-        if (!$encryptionEnabled) {
+        // Configure encryption based on what was stored
+        $wasEncrypted = $this->data['encrypted'] ?? true;
+        if (!$wasEncrypted || !$encryptionEnabled) {
             $config = new SecurityConfig();
             $config->setEncryptionEnabled(false);
             $item->setSecurityConfig($config);
         }
         
-        // Mark data as encrypted since it came from storage
-        $item->setDataIsEncrypted(true);
+        // Mark data as encrypted only if it was actually encrypted when stored
+        $item->setDataIsEncrypted($wasEncrypted);
+        
+        // Mark that this data came from storage
+        $item->setDataFromStorage(true);
 
         return $item;
     }
@@ -216,7 +220,8 @@ class FileStorage implements Storage {
                 'created_at' => time(),
                 'ttl' => $item->getTTL(),
                 'expires' => $item->getExpiryTime(),
-                'key' => $item->getKey()
+                'key' => $item->getKey(),
+                'encrypted' => $securityConfig->isEncryptionEnabled()
             ]);
             
             if (file_put_contents($tempFile, $dataSer, LOCK_EX) === false) {
@@ -243,8 +248,8 @@ class FileStorage implements Storage {
      * @param string $prefix The key prefix
      * @throws CacheStorageException If file reading or unserialization fails
      */
-    private function initData(string $key, string $prefix) {
-        $filePath = $this->cacheDir.DIRECTORY_SEPARATOR.$prefix.md5($key).'.cache';
+    private function initData(string $key, ?string $prefix) {
+        $filePath = $this->cacheDir.DIRECTORY_SEPARATOR.($prefix ?? '').md5($key).'.cache';
 
         if (!file_exists($filePath)) {
             $this->data = [
@@ -252,7 +257,8 @@ class FileStorage implements Storage {
                 'ttl' => 0,
                 'data' => null,
                 'created_at' => 0,
-                'key' => ''
+                'key' => '',
+                'encrypted' => true // Default to encrypted for backward compatibility
             ];
 
             return ;
@@ -266,6 +272,11 @@ class FileStorage implements Storage {
         $this->data = unserialize($content);
         if ($this->data === false) {
             throw new CacheStorageException("Failed to unserialize cache data from: {$filePath}");
+        }
+        
+        // Handle backward compatibility - if 'encrypted' field doesn't exist, assume encrypted
+        if (!isset($this->data['encrypted'])) {
+            $this->data['encrypted'] = true;
         }
     }
 }
