@@ -8,7 +8,8 @@ use WebFiori\Cache\KeyManager;
 use WebFiori\Cache\SecurityConfig;
 use WebFiori\Cache\FileStorage;
 use InvalidArgumentException;
-use RuntimeException;
+use WebFiori\Cache\Exceptions\CacheException;
+use WebFiori\Cache\Exceptions\InvalidCacheKeyException;
 
 /**
  * Test class for security enhancements.
@@ -60,8 +61,8 @@ class SecurityTest extends TestCase {
      * @test
      */
     public function testKeyManagerRejectsInvalidKey() {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid encryption key. Must be 64 hexadecimal characters.');
+        $this->expectException(InvalidCacheKeyException::class);
+        $this->expectExceptionMessage('Invalid encryption key format. Must be 64 hexadecimal characters.');
         KeyManager::setEncryptionKey('invalid_key');
     }
     
@@ -69,7 +70,7 @@ class SecurityTest extends TestCase {
      * @test
      */
     public function testKeyManagerRejectsShortKey() {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidCacheKeyException::class);
         KeyManager::setEncryptionKey('abc123'); // Too short
     }
     
@@ -77,7 +78,7 @@ class SecurityTest extends TestCase {
      * @test
      */
     public function testKeyManagerRejectsNonHexKey() {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(InvalidCacheKeyException::class);
         KeyManager::setEncryptionKey(str_repeat('g', 64)); // Invalid hex characters
     }
     
@@ -93,7 +94,7 @@ class SecurityTest extends TestCase {
             KeyManager::clearCache();
             unset($_ENV['CACHE_ENCRYPTION_KEY']);
             
-            $this->expectException(RuntimeException::class);
+            $this->expectException(CacheException::class);
             $this->expectExceptionMessage('No valid encryption key found. Please set CACHE_ENCRYPTION_KEY environment variable');
             
             KeyManager::getEncryptionKey();
@@ -201,7 +202,7 @@ class SecurityTest extends TestCase {
             KeyManager::clearCache();
             unset($_ENV['CACHE_ENCRYPTION_KEY']);
             
-            $this->expectException(RuntimeException::class);
+            $this->expectException(CacheException::class);
             $this->expectExceptionMessage('No valid encryption key available');
             
             $item = new Item('test', 'data', 60, '');

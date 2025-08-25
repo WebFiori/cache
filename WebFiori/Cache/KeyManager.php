@@ -10,8 +10,8 @@
  */
 namespace WebFiori\Cache;
 
-use RuntimeException;
-use InvalidArgumentException;
+use WebFiori\Cache\Exceptions\CacheException;
+use WebFiori\Cache\Exceptions\InvalidCacheKeyException;
 
 /**
  * A class for managing encryption keys securely.
@@ -23,7 +23,7 @@ class KeyManager {
      * Gets the encryption key for cache operations.
      * 
      * @return string A valid 64-character hexadecimal encryption key
-     * @throws RuntimeException If no valid encryption key is available
+     * @throws CacheException If no valid encryption key is available
      */
     public static function getEncryptionKey(): string {
         if (self::$key === null) {
@@ -36,11 +36,11 @@ class KeyManager {
      * Sets a custom encryption key.
      * 
      * @param string $key A 64-character hexadecimal string
-     * @throws InvalidArgumentException If the key is invalid
+     * @throws InvalidCacheKeyException If the key is invalid
      */
     public static function setEncryptionKey(string $key): void {
         if (!self::isValidKey($key)) {
-            throw new InvalidArgumentException('Invalid encryption key. Must be 64 hexadecimal characters.');
+            throw new InvalidCacheKeyException($key, 'Invalid encryption key format. Must be 64 hexadecimal characters.');
         }
         self::$key = $key;
     }
@@ -65,7 +65,7 @@ class KeyManager {
      * Loads encryption key from environment variables only.
      * 
      * @return string A valid encryption key
-     * @throws RuntimeException If no valid key can be loaded
+     * @throws CacheException If no valid key can be loaded
      */
     private static function loadKey(): string {
         // Load from environment variable only
@@ -75,7 +75,7 @@ class KeyManager {
             return $key;
         }
         
-        throw new RuntimeException('No valid encryption key found. Please set CACHE_ENCRYPTION_KEY environment variable with a 64-character hexadecimal key.');
+        throw new CacheException('No valid encryption key found. Please set CACHE_ENCRYPTION_KEY environment variable with a 64-character hexadecimal key.');
     }
     
     /**

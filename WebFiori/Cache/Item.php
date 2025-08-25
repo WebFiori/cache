@@ -11,7 +11,7 @@
 namespace WebFiori\Cache;
 
 use InvalidArgumentException;
-use RuntimeException;
+use WebFiori\Cache\Exceptions\CacheException;
 use Exception;
 
 /**
@@ -95,7 +95,7 @@ class Item {
      * If the data is not encrypted (encryption disabled), it will unserialize the data.
      *
      * @return mixed
-     * @throws RuntimeException If decryption fails
+     * @throws CacheException If decryption fails
      */
     public function getDataDecrypted() {
         if (!$this->dataIsEncrypted) {
@@ -117,7 +117,7 @@ class Item {
      * Returns cache data after performing encryption on it.
      *
      * @return string
-     * @throws RuntimeException If encryption fails
+     * @throws CacheException If encryption fails
      */
     public function getDataEncrypted() : string {
         $serializedData = serialize($this->getData());
@@ -301,7 +301,7 @@ class Item {
      * 
      * @param string $data The encrypted data to decrypt
      * @return string The decrypted data
-     * @throws RuntimeException If decryption fails
+     * @throws CacheException If decryption fails
      */
     private function decrypt($data): string {
         $encKey = $this->getEffectiveEncryptionKey();
@@ -309,14 +309,14 @@ class Item {
         try {
             $decodedData = base64_decode($data, true);
             if ($decodedData === false) {
-                throw new RuntimeException('Invalid base64 encoded data');
+                throw new CacheException('Invalid base64 encoded data');
             }
             
             $algorithm = $this->securityConfig ? $this->securityConfig->getEncryptionAlgorithm() : 'aes-256-cbc';
             $ivLength = openssl_cipher_iv_length($algorithm);
             
             if (strlen($decodedData) < $ivLength) {
-                throw new RuntimeException('Invalid encrypted data format');
+                throw new CacheException('Invalid encrypted data format');
             }
             
             $iv = substr($decodedData, 0, $ivLength);
@@ -325,12 +325,12 @@ class Item {
             $decrypted = openssl_decrypt($encryptedData, $algorithm, $encKey, OPENSSL_RAW_DATA, $iv);
             
             if ($decrypted === false) {
-                throw new RuntimeException('Decryption failed');
+                throw new CacheException('Decryption failed');
             }
             
             return $decrypted;
         } catch (Exception $e) {
-            throw new RuntimeException('Decryption error: ' . $e->getMessage());
+            throw new CacheException('Decryption error: ' . $e->getMessage());
         }
     }
     
@@ -339,7 +339,7 @@ class Item {
      * 
      * @param string $data The data to encrypt
      * @return string The encrypted data
-     * @throws RuntimeException If encryption fails
+     * @throws CacheException If encryption fails
      */
     private function encrypt($data): string {
         $key = $this->getEffectiveEncryptionKey();
@@ -350,12 +350,12 @@ class Item {
             $encryptedData = openssl_encrypt($data, $algorithm, $key, OPENSSL_RAW_DATA, $iv);
             
             if ($encryptedData === false) {
-                throw new RuntimeException('Encryption failed');
+                throw new CacheException('Encryption failed');
             }
             
             return base64_encode($iv . $encryptedData);
         } catch (Exception $e) {
-            throw new RuntimeException('Encryption error: ' . $e->getMessage());
+            throw new CacheException('Encryption error: ' . $e->getMessage());
         }
     }
     
@@ -363,7 +363,7 @@ class Item {
      * Gets the effective encryption key to use.
      * 
      * @return string The encryption key
-     * @throws RuntimeException If no valid key is available
+     * @throws CacheException If no valid key is available
      */
     private function getEffectiveEncryptionKey(): string {
         // Use provided key if available and valid
@@ -376,7 +376,7 @@ class Item {
             $encKey = KeyManager::getEncryptionKey();
             return hex2bin($encKey);
         } catch (Exception $e) {
-            throw new RuntimeException('No valid encryption key available: ' . $e->getMessage());
+            throw new CacheException('No valid encryption key available: ' . $e->getMessage());
         }
     }
 }

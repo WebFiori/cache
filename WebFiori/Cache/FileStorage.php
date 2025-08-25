@@ -10,8 +10,8 @@
  */
 namespace WebFiori\Cache;
 
-use InvalidArgumentException;
-use RuntimeException;
+use WebFiori\Cache\Exceptions\CacheStorageException;
+use WebFiori\Cache\Exceptions\CacheException;
 
 /**
  * File based cache storage engine.
@@ -28,6 +28,7 @@ class FileStorage implements Storage {
      * 
      * @param string $storagePath The location at which cache items will be
      * stored at.
+     * @throws CacheStorageException If the storage path is invalid
      */
     public function __construct(string $storagePath) {
         $this->setPath($storagePath);
@@ -37,12 +38,15 @@ class FileStorage implements Storage {
      * Removes an item from the cache.
      *
      * @param string $key The key of the item.
+     * @throws CacheStorageException If file deletion fails
      */
     public function delete(string $key) {
         $filePath = $this->getPath().DIRECTORY_SEPARATOR.md5($key).'.cache';
 
         if (file_exists($filePath)) {
-            unlink($filePath);
+            if (!unlink($filePath)) {
+                throw new CacheStorageException("Failed to delete cache file: {$filePath}");
+            }
         }
     }
     
@@ -51,12 +55,15 @@ class FileStorage implements Storage {
      * 
      * @param string|null $prefix An optional prefix. If provided, the method will
      * only delete the items which has given prefix.
+     * @throws CacheStorageException If flush operation fails
      */
     public function flush(?string $prefix) {
         $files = glob($this->cacheDir.DIRECTORY_SEPARATOR.$prefix.'*.cache');
 
         foreach ($files as $file) {
-            unlink($file);
+            if (!unlink($file)) {
+                throw new CacheStorageException("Failed to delete cache file during flush: {$file}");
+            }
         }
     }
     
@@ -89,6 +96,7 @@ class FileStorage implements Storage {
      *
      * @return mixed|null If cache item is not expired, its data is returned. Other than
      * that, null is returned.
+     * @throws CacheStorageException If reading fails
      */
     public function read(string $key, ?string $prefix) {
         $item = $this->readItem($key, $prefix);
@@ -96,7 +104,7 @@ class FileStorage implements Storage {
         if ($item !== null) {
             try {
                 return $item->getDataDecrypted();
-            } catch (RuntimeException $e) {
+            } catch (CacheException $e) {
                 // If decryption fails, delete the corrupted item and return null
                 $this->delete($key);
                 return null;
@@ -114,6 +122,7 @@ class FileStorage implements Storage {
      * @return Item|null If cache item exist and is not expired,
      * an object of type 'Item' is returned. Other than
      * that, null is returned.
+     * @throws CacheStorageException If reading fails
      */
     public function readItem(string $key, ?string $prefix) {
         $this->initData($key, $prefix);
@@ -130,7 +139,7 @@ class FileStorage implements Storage {
         $encryptionEnabled = true;
         try {
             $secretKey = KeyManager::getEncryptionKey();
-        } catch (RuntimeException $e) {
+        } catch (CacheException $e) {
             // If no key available, assume encryption is disabled
             $encryptionEnabled = false;
         }
@@ -158,9 +167,28 @@ class FileStorage implements Storage {
      *
      * @param string $path
      * 
-     * @throws InvalidArgumentException
+     * @throws CacheStorageException If the path is invalid or not writable
      */
     public function setPath(string $path) {
+        if (empty(trim($path))) {
+            throw new CacheStorageException("Cache path cannot be empty");
+        }
+        
+        // Check if path exists and is writable, or if parent directory is writable for creation
+        if (file_exists($path)) {
+            if (!is_dir($path)) {
+                throw new CacheStorageException("Cache path exists but is not a directory: {$path}");
+            }
+            if (!is_writable($path)) {
+                throw new CacheStorageException("Cache path is not writable: {$path}");
+            }
+        } else {
+            $parentDir = dirname($path);
+            if (!is_writable($parentDir)) {
+                throw new CacheStorageException("Cannot create cache directory, parent directory is not writable: {$parentDir}");
+            }
+        }
+        
         $this->cacheDir = $path;
     }
     
@@ -168,8 +196,7 @@ class FileStorage implements Storage {
      * Store an item into the cache.
      *
      * @param Item $item An item that will be added to the cache.
-     * @throws InvalidArgumentException If cache path is invalid
-     * @throws RuntimeException If file operations fail
+     * @throws CacheStorageException If storage operations fail
      */
     public function store(Item $item) {
         if ($item->getTTL() > 0) {
@@ -179,7 +206,7 @@ class FileStorage implements Storage {
             $storageFolder = $this->getPath();
 
             if (!is_dir($storageFolder) && !mkdir($storageFolder, $securityConfig->getDirectoryPermissions(), true)) {
-                throw new InvalidArgumentException("Invalid cache path: '".$storageFolder."'.");
+                throw new CacheStorageException("Failed to create cache directory: '{$storageFolder}'");
             }
             
             // Create temporary file for atomic write
@@ -193,18 +220,18 @@ class FileStorage implements Storage {
             ]);
             
             if (file_put_contents($tempFile, $dataSer, LOCK_EX) === false) {
-                throw new RuntimeException("Failed to write cache file: $tempFile");
+                throw new CacheStorageException("Failed to write cache file: {$tempFile}");
             }
             
             // Set restrictive permissions and atomic rename
             if (!chmod($tempFile, $securityConfig->getFilePermissions())) {
                 unlink($tempFile);
-                throw new RuntimeException("Failed to set permissions on cache file: $tempFile");
+                throw new CacheStorageException("Failed to set permissions on cache file: {$tempFile}");
             }
             
             if (!rename($tempFile, $filePath)) {
                 unlink($tempFile);
-                throw new RuntimeException("Failed to create cache file: $filePath");
+                throw new CacheStorageException("Failed to create cache file: {$filePath}");
             }
         }
     }
@@ -214,6 +241,7 @@ class FileStorage implements Storage {
      * 
      * @param string $key The cache key
      * @param string $prefix The key prefix
+     * @throws CacheStorageException If file reading or unserialization fails
      */
     private function initData(string $key, string $prefix) {
         $filePath = $this->cacheDir.DIRECTORY_SEPARATOR.$prefix.md5($key).'.cache';
@@ -230,6 +258,14 @@ class FileStorage implements Storage {
             return ;
         }
 
-        $this->data = unserialize(file_get_contents($filePath));
+        $content = file_get_contents($filePath);
+        if ($content === false) {
+            throw new CacheStorageException("Failed to read cache file: {$filePath}");
+        }
+        
+        $this->data = unserialize($content);
+        if ($this->data === false) {
+            throw new CacheStorageException("Failed to unserialize cache data from: {$filePath}");
+        }
     }
 }
