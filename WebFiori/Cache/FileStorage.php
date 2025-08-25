@@ -270,11 +270,11 @@ class FileStorage implements Storage {
         }
         
         try {
-            $this->data = unserialize($content);
+            $this->data = @unserialize($content);
             if ($this->data === false) {
                 throw new CacheStorageException("Failed to unserialize cache data from: {$filePath}");
             }
-        } catch (Error $e) {
+        } catch (Error | Exception $e) {
             throw new CacheStorageException("Failed to unserialize cache data from: {$filePath}");
         }
         
