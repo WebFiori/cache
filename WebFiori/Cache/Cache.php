@@ -116,7 +116,7 @@ class Cache {
      * @return mixed The cached or generated data
      * @throws InvalidCacheKeyException If the key is invalid
      */
-    public static function get(string $key, callable $generator = null, int $ttl = 60, array $params = []) {
+    public static function get(string $key, ?callable $generator = null, int $ttl = 60, array $params = []) {
         self::validateKey($key);
         
         $data = self::getDriver()->read($key, self::getPrefix());
