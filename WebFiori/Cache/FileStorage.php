@@ -269,8 +269,12 @@ class FileStorage implements Storage {
             throw new CacheStorageException("Failed to read cache file: {$filePath}");
         }
         
-        $this->data = unserialize($content);
-        if ($this->data === false) {
+        try {
+            $this->data = unserialize($content);
+            if ($this->data === false) {
+                throw new CacheStorageException("Failed to unserialize cache data from: {$filePath}");
+            }
+        } catch (Error $e) {
             throw new CacheStorageException("Failed to unserialize cache data from: {$filePath}");
         }
         
