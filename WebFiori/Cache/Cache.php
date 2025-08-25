@@ -88,7 +88,7 @@ class Cache {
      */
     public static function delete(string $key): void {
         self::validateKey($key);
-        self::getDriver()->delete($key);
+        self::getDriver()->delete(self::getPrefix() . $key);
     }
     
     /**
