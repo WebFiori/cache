@@ -1,4 +1,5 @@
 <?php
+
 /**
  * This file is licensed under MIT License.
  *
@@ -18,7 +19,23 @@ use WebFiori\Cache\Exceptions\InvalidCacheKeyException;
  */
 class KeyManager {
     private static $key = null;
-    
+
+    /**
+     * Clears the cached key (useful for testing).
+     */
+    public static function clearCache(): void {
+        self::$key = null;
+    }
+
+    /**
+     * Generates a new cryptographically secure encryption key.
+     * 
+     * @return string A 64-character hexadecimal encryption key
+     */
+    public static function generateKey(): string {
+        return bin2hex(random_bytes(32));
+    }
+
     /**
      * Gets the encryption key for cache operations.
      * 
@@ -29,9 +46,10 @@ class KeyManager {
         if (self::$key === null) {
             self::$key = self::loadKey();
         }
+
         return self::$key;
     }
-    
+
     /**
      * Sets a custom encryption key.
      * 
@@ -44,23 +62,17 @@ class KeyManager {
         }
         self::$key = $key;
     }
-    
+
     /**
-     * Generates a new cryptographically secure encryption key.
+     * Validates if a key is properly formatted.
      * 
-     * @return string A 64-character hexadecimal encryption key
+     * @param string $key The key to validate
+     * @return bool True if valid, false otherwise
      */
-    public static function generateKey(): string {
-        return bin2hex(random_bytes(32));
+    private static function isValidKey(string $key): bool {
+        return strlen($key) === 64 && ctype_xdigit($key);
     }
-    
-    /**
-     * Clears the cached key (useful for testing).
-     */
-    public static function clearCache(): void {
-        self::$key = null;
-    }
-    
+
     /**
      * Loads encryption key from environment variables only.
      * 
@@ -70,21 +82,11 @@ class KeyManager {
     private static function loadKey(): string {
         // Load from environment variable only
         $key = $_ENV['CACHE_ENCRYPTION_KEY'] ?? getenv('CACHE_ENCRYPTION_KEY');
-               
+
         if ($key && self::isValidKey($key)) {
             return $key;
         }
-        
+
         throw new CacheException('No valid encryption key found. Please set CACHE_ENCRYPTION_KEY environment variable with a 64-character hexadecimal key.');
-    }
-    
-    /**
-     * Validates if a key is properly formatted.
-     * 
-     * @param string $key The key to validate
-     * @return bool True if valid, false otherwise
-     */
-    private static function isValidKey(string $key): bool {
-        return strlen($key) === 64 && ctype_xdigit($key);
     }
 }

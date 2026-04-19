@@ -15,24 +15,22 @@ use WebFiori\Cache\Exceptions\InvalidCacheKeyException;
  * Test class for security enhancements.
  */
 class SecurityTest extends TestCase {
-    
+
+    private Cache $cache;
+
     protected function setUp(): void {
-        // Set up a test encryption key for consistent testing
         $testKey = KeyManager::generateKey();
         $_ENV['CACHE_ENCRYPTION_KEY'] = $testKey;
-        KeyManager::clearCache(); // Force reload from environment
-        
-        // Clean up any existing cache
-        Cache::flush();
-    }
-    
-    protected function tearDown(): void {
-        // Clean up after each test
         KeyManager::clearCache();
-        Cache::flush();
-        
-        // Don't clear CACHE_ENCRYPTION_KEY here as it affects other tests
-        // Only clear the other environment variables that we set in specific tests
+
+        $this->cache = new Cache(new FileStorage(__DIR__ . '/test_security_cache'));
+        $this->cache->flush();
+    }
+
+    protected function tearDown(): void {
+        KeyManager::clearCache();
+        $this->cache->flush();
+
         unset($_ENV['CACHE_ENCRYPTION_ENABLED']);
         unset($_ENV['CACHE_ENCRYPTION_ALGORITHM']);
         unset($_ENV['CACHE_FILE_PERMISSIONS']);
@@ -234,9 +232,9 @@ class SecurityTest extends TestCase {
         KeyManager::clearCache(); // Force reload from environment
         
         $testData = 'Test cache data';
-        Cache::set('test_key', $testData, 60);
-        
-        $retrievedData = Cache::get('test_key');
+        $this->cache->set('test_key', $testData, 60);
+
+        $retrievedData = $this->cache->get('test_key');
         $this->assertEquals($testData, $retrievedData);
     }
     
@@ -311,8 +309,8 @@ class SecurityTest extends TestCase {
             'object' => (object)['prop' => 'value']
         ];
         
-        Cache::set('complex_data', $complexData, 60);
-        $retrieved = Cache::get('complex_data');
+        $this->cache->set('complex_data', $complexData, 60);
+        $retrieved = $this->cache->get('complex_data');
         
         $this->assertEquals($complexData, $retrieved);
     }

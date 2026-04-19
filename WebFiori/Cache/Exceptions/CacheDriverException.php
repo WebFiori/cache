@@ -10,8 +10,7 @@ namespace WebFiori\Cache\Exceptions;
  * - Driver-specific operations fail
  * - Driver doesn't implement required interface properly
  */
-class CacheDriverException extends CacheException
-{
+class CacheDriverException extends CacheException {
     /**
      * Creates a new cache driver exception.
      * 
@@ -20,18 +19,17 @@ class CacheDriverException extends CacheException
      * @param int $code The exception code
      * @param \Exception|null $previous Previous exception for chaining
      */
-    public function __construct(string $driverName = '', string $operation = '', int $code = 0, ?\Exception $previous = null)
-    {
+    public function __construct(string $driverName = '', string $operation = '', int $code = 0, ?\Exception $previous = null) {
         $message = 'Cache driver error';
-        
+
         if (!empty($driverName)) {
             $message .= " in driver '{$driverName}'";
         }
-        
+
         if (!empty($operation)) {
             $message .= " during operation '{$operation}'";
         }
-        
+
         parent::__construct($message, $code, $previous);
     }
 }

@@ -15,109 +15,91 @@ use WebFiori\Cache\Exceptions\CacheStorageException;
  * Integration and edge case tests for the cache system.
  */
 class IntegrationTest extends TestCase {
-    
+
+    private Cache $cache;
+
     protected function setUp(): void {
-        // Set up a test encryption key for consistent testing
         $testKey = KeyManager::generateKey();
         $_ENV['CACHE_ENCRYPTION_KEY'] = $testKey;
         KeyManager::clearCache();
-        
-        // Clean up any existing cache
-        Cache::flush();
+
+        $this->cache = new Cache(new FileStorage(__DIR__ . '/test_integration_cache'));
+        $this->cache->flush();
     }
-    
+
     protected function tearDown(): void {
-        // Clean up after each test
         KeyManager::clearCache();
-        Cache::flush();
-        
-        // Clean up environment variables
+        $this->cache->flush();
         unset($_ENV['CACHE_ENCRYPTION_KEY']);
     }
-    
+
     /**
      * @test
      */
     public function testCacheWithCustomStorageDriver() {
-        $customStorage = new MockStorage();
-        Cache::setDriver($customStorage);
-        
-        $key = 'custom_storage_test';
-        $data = 'custom_storage_data';
-        
-        Cache::set($key, $data, 300);
-        $this->assertEquals($data, Cache::get($key));
-        $this->assertTrue(Cache::has($key));
-        
-        Cache::delete($key);
-        $this->assertFalse(Cache::has($key));
+        $cache = new Cache(new MockStorage());
+
+        $cache->set('custom_storage_test', 'custom_storage_data', 300);
+        $this->assertEquals('custom_storage_data', $cache->get('custom_storage_test'));
+        $this->assertTrue($cache->has('custom_storage_test'));
+
+        $cache->delete('custom_storage_test');
+        $this->assertFalse($cache->has('custom_storage_test'));
     }
-    
+
     /**
      * @test
      */
     public function testCacheWithMultiplePrefixes() {
         $prefixes = ['user_', 'session_', 'api_', 'temp_'];
         $keys = ['data1', 'data2', 'data3'];
-        
-        // Store data with different prefixes
+
+        $caches = [];
         foreach ($prefixes as $prefix) {
-            Cache::withPrefix($prefix);
+            $caches[$prefix] = $this->cache->withPrefix($prefix);
             foreach ($keys as $i => $key) {
-                Cache::set($key, "data_{$prefix}_{$i}", 300);
+                $caches[$prefix]->set($key, "data_{$prefix}_{$i}", 300);
             }
         }
-        
-        // Verify data isolation
+
         foreach ($prefixes as $prefix) {
-            Cache::withPrefix($prefix);
             foreach ($keys as $i => $key) {
-                $this->assertEquals("data_{$prefix}_{$i}", Cache::get($key));
+                $this->assertEquals("data_{$prefix}_{$i}", $caches[$prefix]->get($key));
             }
         }
-        
-        // Flush one prefix and verify others remain
-        Cache::withPrefix('user_')->flush();
-        
+
+        $caches['user_']->flush();
+
         foreach ($keys as $key) {
-            $this->assertFalse(Cache::withPrefix('user_')::has($key));
-            $this->assertTrue(Cache::withPrefix('session_')::has($key));
-            $this->assertTrue(Cache::withPrefix('api_')::has($key));
-            $this->assertTrue(Cache::withPrefix('temp_')::has($key));
+            $this->assertFalse($caches['user_']->has($key));
+            $this->assertTrue($caches['session_']->has($key));
+            $this->assertTrue($caches['api_']->has($key));
+            $this->assertTrue($caches['temp_']->has($key));
         }
     }
-    
+
     /**
      * @test
      */
     public function testCachePerformanceWithManyItems() {
         $itemCount = 1000;
         $startTime = microtime(true);
-        
-        // Store many items
+
         for ($i = 0; $i < $itemCount; $i++) {
-            Cache::set("perf_test_{$i}", "data_{$i}", 300);
+            $this->cache->set("perf_test_{$i}", "data_{$i}", 300);
         }
-        
         $storeTime = microtime(true) - $startTime;
-        
-        // Retrieve many items
+
         $startTime = microtime(true);
         for ($i = 0; $i < $itemCount; $i++) {
-            $data = Cache::get("perf_test_{$i}");
-            $this->assertEquals("data_{$i}", $data);
+            $this->assertEquals("data_{$i}", $this->cache->get("perf_test_{$i}"));
         }
-        
         $retrieveTime = microtime(true) - $startTime;
-        
-        // Performance should be reasonable (less than 5 seconds for 1000 items)
+
         $this->assertLessThan(5.0, $storeTime);
         $this->assertLessThan(5.0, $retrieveTime);
-        
-        // Clean up
-        Cache::flush();
     }
-    
+
     /**
      * @test
      */
@@ -143,57 +125,43 @@ class IntegrationTest extends TestCase {
                 ]
             ]
         ];
-        
-        $key = 'complex_nested_test';
-        Cache::set($key, $complexData, 300);
-        
-        $retrieved = Cache::get($key);
+
+        $this->cache->set('complex_nested_test', $complexData, 300);
+        $retrieved = $this->cache->get('complex_nested_test');
         $this->assertEquals($complexData, $retrieved);
-        
-        // Test specific nested access
         $this->assertEquals('deep string', $retrieved['level1']['level2']['level3']['string']);
         $this->assertEquals('very deep', $retrieved['level1']['level2']['level3']['object']->nested->deep);
         $this->assertEquals('final value', $retrieved['parallel']['more_nesting']['even']['deeper']['nesting']);
     }
-    
+
     /**
      * @test
      */
     public function testCacheWithCallbackExceptions() {
-        $key = 'exception_test';
-        
         try {
-            Cache::get($key, function() {
+            $this->cache->get('exception_test', function () {
                 throw new \RuntimeException('Generator failed');
             }, 300);
             $this->fail('Expected exception was not thrown');
         } catch (\RuntimeException $e) {
             $this->assertEquals('Generator failed', $e->getMessage());
         }
-        
-        // Cache should not contain the failed item
-        $this->assertFalse(Cache::has($key));
-        $this->assertNull(Cache::get($key));
+
+        $this->assertFalse($this->cache->has('exception_test'));
     }
-    
+
     /**
      * @test
      */
     public function testCacheWithRecursiveData() {
-        // Create recursive data structure
         $data = ['name' => 'root'];
-        $data['self'] = &$data; // Circular reference
-        
-        $key = 'recursive_test';
-        
-        // This should handle recursive data gracefully
-        Cache::set($key, $data, 300);
-        $retrieved = Cache::get($key);
-        
+        $data['self'] = &$data;
+
+        $this->cache->set('recursive_test', $data, 300);
+        $retrieved = $this->cache->get('recursive_test');
         $this->assertEquals('root', $retrieved['name']);
-        // Note: Circular references are handled by PHP's serialization
     }
-    
+
     /**
      * @test
      */
@@ -211,141 +179,122 @@ class IntegrationTest extends TestCase {
             'indexed_array' => [1, 2, 3],
             'associative_array' => ['key' => 'value'],
             'object' => (object)['prop' => 'value']
-            // Removed closure as it cannot be serialized
         ];
-        
+
         foreach ($testCases as $type => $value) {
             $key = "type_test_{$type}";
-            Cache::set($key, $value, 300);
-            
-            $retrieved = Cache::get($key);
+            $this->cache->set($key, $value, 300);
+            $this->assertTrue($this->cache->has($key), "has() failed for type: {$type}");
+            $retrieved = $this->cache->get($key);
             $this->assertEquals($value, $retrieved, "Failed for type: {$type}");
         }
     }
-    
+
     /**
      * @test
      */
     public function testCacheWithVeryLongKeys() {
-        // Test with maximum allowed key length (250 characters)
         $maxKey = str_repeat('a', 250);
-        Cache::set($maxKey, 'max_key_data', 300);
-        $this->assertEquals('max_key_data', Cache::get($maxKey));
-        
-        // Test with key containing various characters
-        $specialKey = str_repeat('ñ', 83); // 83 * 3 bytes = 249 bytes in UTF-8
-        Cache::set($specialKey, 'special_key_data', 300);
-        $this->assertEquals('special_key_data', Cache::get($specialKey));
+        $this->cache->set($maxKey, 'max_key_data', 300);
+        $this->assertEquals('max_key_data', $this->cache->get($maxKey));
+
+        $specialKey = str_repeat('ñ', 83);
+        $this->cache->set($specialKey, 'special_key_data', 300);
+        $this->assertEquals('special_key_data', $this->cache->get($specialKey));
     }
-    
+
     /**
      * @test
      */
     public function testCacheStateConsistency() {
-        // Test that cache state remains consistent across operations
         $keys = ['key1', 'key2', 'key3'];
-        
-        // Initial state - no items
+
         foreach ($keys as $key) {
-            $this->assertFalse(Cache::has($key));
+            $this->assertFalse($this->cache->has($key));
         }
-        
-        // Add items
+
         foreach ($keys as $i => $key) {
-            Cache::set($key, "data_{$i}", 300);
-            $this->assertTrue(Cache::has($key));
+            $this->cache->set($key, "data_{$i}", 300);
+            $this->assertTrue($this->cache->has($key));
         }
-        
-        // Verify all items exist
+
+        $this->cache->delete($keys[1]);
+        $this->assertTrue($this->cache->has($keys[0]));
+        $this->assertFalse($this->cache->has($keys[1]));
+        $this->assertTrue($this->cache->has($keys[2]));
+
+        $this->cache->flush();
         foreach ($keys as $key) {
-            $this->assertTrue(Cache::has($key));
-        }
-        
-        // Delete middle item
-        Cache::delete($keys[1]);
-        $this->assertTrue(Cache::has($keys[0]));
-        $this->assertFalse(Cache::has($keys[1]));
-        $this->assertTrue(Cache::has($keys[2]));
-        
-        // Flush all
-        Cache::flush();
-        foreach ($keys as $key) {
-            $this->assertFalse(Cache::has($key));
+            $this->assertFalse($this->cache->has($key));
         }
     }
-    
+
     /**
      * @test
      */
     public function testCacheWithRapidOperations() {
         $key = 'rapid_ops_test';
-        
-        // Rapid set/get operations
         for ($i = 0; $i < 100; $i++) {
-            Cache::set($key, "data_{$i}", 300, true);
-            $this->assertEquals("data_{$i}", Cache::get($key));
+            $this->cache->set($key, "data_{$i}", 300, true);
+            $this->assertEquals("data_{$i}", $this->cache->get($key));
         }
-        
-        // Final value should be the last one set
-        $this->assertEquals('data_99', Cache::get($key));
+        $this->assertEquals('data_99', $this->cache->get($key));
     }
-    
+
     /**
      * @test
      */
     public function testCacheWithMemoryLimits() {
-        // Test with data that approaches memory limits
         $largeArray = [];
         for ($i = 0; $i < 10000; $i++) {
-            $largeArray[] = str_repeat('x', 100); // 100 chars * 10000 = ~1MB
+            $largeArray[] = str_repeat('x', 100);
         }
-        
-        $key = 'memory_test';
-        Cache::set($key, $largeArray, 300);
-        
-        $retrieved = Cache::get($key);
+
+        $this->cache->set('memory_test', $largeArray, 300);
+        $retrieved = $this->cache->get('memory_test');
         $this->assertEquals(count($largeArray), count($retrieved));
         $this->assertEquals($largeArray[0], $retrieved[0]);
         $this->assertEquals($largeArray[9999], $retrieved[9999]);
     }
-    
+
     /**
      * @test
      */
     public function testCacheErrorRecovery() {
-        // Test cache behavior when storage fails
-        $mockStorage = new FailingMockStorage();
-        $originalDriver = Cache::getDriver();
-        
-        try {
-            Cache::setDriver($mockStorage);
-            
-            // Operations should handle failures gracefully
-            // When storage fails, the generator should still run and return data
-            // but the data won't be cached
-            $result = Cache::get('test_key', function() {
-                return 'generated_data';
-            }, 300);
-            
-            // Should return generated data even if storage fails
-            $this->assertEquals('generated_data', $result);
-            
-            // Verify it's not cached (since storage failed)
-            $this->assertFalse(Cache::has('test_key'));
-            
-        } finally {
-            // Restore original driver
-            Cache::setDriver($originalDriver);
-        }
+        $cache = new Cache(new FailingMockStorage());
+
+        $result = $cache->get('test_key', function () {
+            return 'generated_data';
+        }, 300);
+
+        $this->assertEquals('generated_data', $result);
+        $this->assertFalse($cache->has('test_key'));
+    }
+
+    /**
+     * @test
+     */
+    public function testPurgeExpired() {
+        $this->cache->set('expire1', 'data1', 1);
+        $this->cache->set('expire2', 'data2', 1);
+        $this->cache->set('keep1', 'data3', 600);
+
+        sleep(2);
+
+        $removed = $this->cache->purgeExpired();
+        $this->assertEquals(2, $removed);
+        $this->assertFalse($this->cache->has('expire1'));
+        $this->assertFalse($this->cache->has('expire2'));
+        $this->assertTrue($this->cache->has('keep1'));
     }
 }
 
 /**
- * Mock storage implementation for testing
+ * Mock storage implementation for testing.
  */
 class MockStorage implements Storage {
     private array $data = [];
-    
+
     public function store(Item $item) {
         $key = $item->getPrefix() . $item->getKey();
         $this->data[$key] = [
@@ -357,43 +306,37 @@ class MockStorage implements Storage {
             'prefix' => $item->getPrefix()
         ];
     }
-    
+
     public function read(string $key, ?string $prefix) {
         $item = $this->readItem($key, $prefix);
         return $item ? $item->getDataDecrypted() : null;
     }
-    
+
     public function readItem(string $key, ?string $prefix): ?Item {
         $fullKey = $prefix . $key;
-        
         if (!isset($this->data[$fullKey])) {
             return null;
         }
-        
         $data = $this->data[$fullKey];
-        
         if (time() > $data['expires']) {
             unset($this->data[$fullKey]);
             return null;
         }
-        
         $item = new Item($key, $data['data'], $data['ttl'], KeyManager::getEncryptionKey());
         $item->setCreatedAt($data['created_at']);
         $item->setPrefix($prefix ?? '');
         $item->setDataIsEncrypted(true);
-        
         return $item;
     }
-    
+
     public function has(string $key, ?string $prefix): bool {
         return $this->readItem($key, $prefix) !== null;
     }
-    
+
     public function delete(string $key) {
-        $fullKey = $key;
-        unset($this->data[$fullKey]);
+        unset($this->data[$key]);
     }
-    
+
     public function flush(?string $prefix) {
         if ($prefix === null) {
             $this->data = [];
@@ -420,31 +363,29 @@ class MockStorage implements Storage {
 }
 
 /**
- * Mock storage that fails operations for testing error handling
+ * Mock storage that fails operations for testing error handling.
  */
 class FailingMockStorage implements Storage {
     public function store(Item $item) {
         throw new CacheStorageException('Mock storage failure');
     }
-    
+
     public function read(string $key, ?string $prefix) {
-        return null; // Always return null (cache miss)
+        return null;
     }
-    
+
     public function readItem(string $key, ?string $prefix): ?Item {
         return null;
     }
-    
+
     public function has(string $key, ?string $prefix): bool {
         return false;
     }
-    
+
     public function delete(string $key) {
-        // Do nothing
     }
-    
+
     public function flush(?string $prefix) {
-        // Do nothing
     }
 
     public function purgeExpired(): int {

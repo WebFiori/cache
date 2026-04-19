@@ -1,7 +1,7 @@
 {
     "name": "webfiori/cache",
     "description": "A simple caching engine which is highly customizable.",
-    "version": "2.0.0",
+    "version": "3.0.0",
     "keywords": [
         "Cache",
         "File Cache",
@@ -15,10 +15,12 @@
         }
     },
     "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.0",
         "phpunit/phpunit": "^10.0"
     },
     "scripts": {
         "test": "vendor/bin/phpunit -c tests/phpunit.xml",
-        "test10": "vendor/bin/phpunit -c tests/phpunit10.xml"
+        "test10": "vendor/bin/phpunit -c tests/phpunit10.xml",
+        "fix-cs": "vendor/bin/php-cs-fixer fix --config=php_cs.php.dist"
     }
 }

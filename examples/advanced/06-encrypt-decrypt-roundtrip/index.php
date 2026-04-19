@@ -1,5 +1,6 @@
 <?php
-require_once __DIR__ . '/../../../vendor/autoload.php';
+
+require_once __DIR__.'/../../../vendor/autoload.php';
 
 use WebFiori\Cache\Item;
 use WebFiori\Cache\KeyManager;
@@ -15,7 +16,7 @@ $encrypted = $item->getDataEncrypted();
 
 echo "Original:  $original\n";
 echo "Encrypted: $encrypted\n";
-echo "Match?     " . ($encrypted === $original ? 'same (BAD)' : 'different (encrypted)') . "\n\n";
+echo "Match?     ".($encrypted === $original ? 'same (BAD)' : 'different (encrypted)')."\n\n";
 
 // Simulate reading from storage: create new item with encrypted data
 $fromStorage = new Item('payment', $encrypted, 60, $secret);
@@ -24,4 +25,4 @@ $fromStorage->setDataFromStorage(true);
 
 $decrypted = $fromStorage->getDataDecrypted();
 echo "Decrypted: $decrypted\n";
-echo "Round-trip match? " . ($decrypted === $original ? 'yes' : 'no') . "\n";
+echo "Round-trip match? ".($decrypted === $original ? 'yes' : 'no')."\n";

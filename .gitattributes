@@ -8,5 +8,6 @@
 /phpunit.xml export-ignore
 /ecs.php export-ignore
 /php_cs.php.dist export-ignore
+/examples export-ignore
 /phpbench.json export-ignore
 /sonar-project.properties export-ignore
