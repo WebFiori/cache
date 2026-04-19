@@ -672,4 +672,170 @@ class CacheTest extends TestCase {
         chmod($dir, 0700);
         rmdir($dir);
     }
+
+    /**
+     * @test
+     */
+    public function testGetReturnsDataWhenDecryptionFails() {
+        // Store a valid item
+        $this->cache->set('good_key', 'good_data', 60);
+        $this->assertTrue($this->cache->has('good_key'));
+
+        // Corrupt the cache file by overwriting with invalid encrypted data
+        $cacheDir = $this->cache->getDriver()->getPath();
+        $files = glob($cacheDir . '/*.cache');
+        $this->assertNotEmpty($files);
+
+        // Write a valid serialized structure but with garbage encrypted data
+        $corrupted = serialize([
+            'data' => 'not-valid-base64-encrypted-data!!!',
+            'created_at' => time(),
+            'ttl' => 60,
+            'expires' => time() + 60,
+            'key' => 'good_key',
+            'encrypted' => true,
+        ]);
+        file_put_contents($files[0], $corrupted);
+
+        // get() should treat decryption failure as cache miss and run generator
+        $counter = 0;
+        $result = $this->cache->get('good_key', function () use (&$counter) {
+            $counter++;
+            return 'regenerated';
+        }, 60);
+
+        $this->assertEquals('regenerated', $result);
+        $this->assertEquals(1, $counter);
+    }
+
+    /**
+     * @test
+     */
+    public function testCacheFacadeBasicOperations() {
+        $testKey = KeyManager::generateKey();
+        $_ENV['CACHE_ENCRYPTION_KEY'] = $testKey;
+        KeyManager::clearCache();
+
+        \WebFiori\Cache\CacheFacade::reset();
+
+        \WebFiori\Cache\CacheFacade::set('facade_key', 'facade_value', 60);
+        $this->assertTrue(\WebFiori\Cache\CacheFacade::has('facade_key'));
+        $this->assertEquals('facade_value', \WebFiori\Cache\CacheFacade::get('facade_key'));
+
+        $item = \WebFiori\Cache\CacheFacade::getItem('facade_key');
+        $this->assertNotNull($item);
+        $this->assertEquals(60, $item->getTTL());
+
+        \WebFiori\Cache\CacheFacade::setTTL('facade_key', 300);
+        $item = \WebFiori\Cache\CacheFacade::getItem('facade_key');
+        $this->assertEquals(300, $item->getTTL());
+
+        \WebFiori\Cache\CacheFacade::delete('facade_key');
+        $this->assertFalse(\WebFiori\Cache\CacheFacade::has('facade_key'));
+
+        \WebFiori\Cache\CacheFacade::flush();
+        \WebFiori\Cache\CacheFacade::reset();
+    }
+
+    /**
+     * @test
+     */
+    public function testCacheFacadeEnabledAndDriver() {
+        \WebFiori\Cache\CacheFacade::reset();
+
+        $this->assertTrue(\WebFiori\Cache\CacheFacade::isEnabled());
+        \WebFiori\Cache\CacheFacade::setEnabled(false);
+        $this->assertFalse(\WebFiori\Cache\CacheFacade::isEnabled());
+        \WebFiori\Cache\CacheFacade::setEnabled(true);
+
+        $driver = \WebFiori\Cache\CacheFacade::getDriver();
+        $this->assertInstanceOf(\WebFiori\Cache\Storage::class, $driver);
+
+        $newDriver = new FileStorage(__DIR__ . '/test_facade_driver');
+        \WebFiori\Cache\CacheFacade::setDriver($newDriver);
+        $this->assertSame($newDriver, \WebFiori\Cache\CacheFacade::getDriver());
+
+        \WebFiori\Cache\CacheFacade::flush();
+        if (is_dir(__DIR__ . '/test_facade_driver')) {
+            rmdir(__DIR__ . '/test_facade_driver');
+        }
+        \WebFiori\Cache\CacheFacade::reset();
+    }
+
+    /**
+     * @test
+     */
+    public function testCacheFacadeWithPrefix() {
+        \WebFiori\Cache\CacheFacade::reset();
+
+        $prefixed = \WebFiori\Cache\CacheFacade::withPrefix('fp_');
+        $this->assertInstanceOf(Cache::class, $prefixed);
+        $this->assertEquals('fp_', $prefixed->getPrefix());
+
+        // Facade's own prefix should be unchanged
+        $this->assertEquals('', \WebFiori\Cache\CacheFacade::getPrefix());
+
+        \WebFiori\Cache\CacheFacade::flush();
+        \WebFiori\Cache\CacheFacade::reset();
+    }
+
+    /**
+     * @test
+     */
+    public function testCacheFacadeInstanceManagement() {
+        \WebFiori\Cache\CacheFacade::reset();
+
+        $inst1 = \WebFiori\Cache\CacheFacade::getInstance();
+        $inst2 = \WebFiori\Cache\CacheFacade::getInstance();
+        $this->assertSame($inst1, $inst2);
+
+        $custom = new Cache(new FileStorage(__DIR__ . '/test_facade_inst'));
+        \WebFiori\Cache\CacheFacade::setInstance($custom);
+        $this->assertSame($custom, \WebFiori\Cache\CacheFacade::getInstance());
+
+        \WebFiori\Cache\CacheFacade::reset();
+        $inst3 = \WebFiori\Cache\CacheFacade::getInstance();
+        $this->assertNotSame($custom, $inst3);
+
+        \WebFiori\Cache\CacheFacade::flush();
+        if (is_dir(__DIR__ . '/test_facade_inst')) {
+            rmdir(__DIR__ . '/test_facade_inst');
+        }
+        \WebFiori\Cache\CacheFacade::reset();
+    }
+
+    /**
+     * @test
+     */
+    public function testCacheFacadePurgeExpired() {
+        \WebFiori\Cache\CacheFacade::reset();
+
+        \WebFiori\Cache\CacheFacade::set('exp1', 'data', 1);
+        \WebFiori\Cache\CacheFacade::set('keep1', 'data', 600);
+        sleep(2);
+
+        $removed = \WebFiori\Cache\CacheFacade::purgeExpired();
+        $this->assertEquals(1, $removed);
+        $this->assertFalse(\WebFiori\Cache\CacheFacade::has('exp1'));
+        $this->assertTrue(\WebFiori\Cache\CacheFacade::has('keep1'));
+
+        \WebFiori\Cache\CacheFacade::flush();
+        \WebFiori\Cache\CacheFacade::reset();
+    }
+
+    /**
+     * @test
+     */
+    public function testCacheFacadeGetWithGenerator() {
+        \WebFiori\Cache\CacheFacade::reset();
+
+        $result = \WebFiori\Cache\CacheFacade::get('gen_key', function () {
+            return 'generated';
+        }, 60);
+        $this->assertEquals('generated', $result);
+        $this->assertEquals('generated', \WebFiori\Cache\CacheFacade::get('gen_key'));
+
+        \WebFiori\Cache\CacheFacade::flush();
+        \WebFiori\Cache\CacheFacade::reset();
+    }
 }

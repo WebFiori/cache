@@ -7,3 +7,5 @@ composer.lock
 tests/.phpunit.result.cache
 *.Identifier
 /WebFiori/Cache/cache
+/tests/.phpunit.cache
+tests/clover.xml

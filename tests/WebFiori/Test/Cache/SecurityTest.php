@@ -754,4 +754,65 @@ class SecurityTest extends TestCase {
         $this->assertEquals(0640, $retrievedConfig->getFilePermissions());
         $this->assertEquals(0750, $retrievedConfig->getDirectoryPermissions());
     }
+
+    /**
+     * @test
+     */
+    public function testCacheSetWithoutEncryptionKey() {
+        // Remove encryption key so storeItem falls back to unencrypted storage
+        $originalKey = $_ENV['CACHE_ENCRYPTION_KEY'] ?? null;
+        unset($_ENV['CACHE_ENCRYPTION_KEY']);
+        KeyManager::clearCache();
+
+        try {
+            $testDir = __DIR__ . '/test_nokey_cache';
+            $cache = new Cache(new FileStorage($testDir));
+
+            $this->assertTrue($cache->set('nokey_item', 'plain_data', 60));
+            $this->assertTrue($cache->has('nokey_item'));
+            $this->assertEquals('plain_data', $cache->get('nokey_item'));
+
+            $cache->flush();
+            if (is_dir($testDir)) {
+                rmdir($testDir);
+            }
+        } finally {
+            if ($originalKey !== null) {
+                $_ENV['CACHE_ENCRYPTION_KEY'] = $originalKey;
+                KeyManager::clearCache();
+            }
+        }
+    }
+
+    /**
+     * @test
+     */
+    public function testCacheGetGeneratorWithoutEncryptionKey() {
+        $originalKey = $_ENV['CACHE_ENCRYPTION_KEY'] ?? null;
+        unset($_ENV['CACHE_ENCRYPTION_KEY']);
+        KeyManager::clearCache();
+
+        try {
+            $testDir = __DIR__ . '/test_nokey_gen_cache';
+            $cache = new Cache(new FileStorage($testDir));
+
+            $result = $cache->get('gen_nokey', function () {
+                return 'generated_without_key';
+            }, 60);
+
+            $this->assertEquals('generated_without_key', $result);
+            $this->assertTrue($cache->has('gen_nokey'));
+            $this->assertEquals('generated_without_key', $cache->get('gen_nokey'));
+
+            $cache->flush();
+            if (is_dir($testDir)) {
+                rmdir($testDir);
+            }
+        } finally {
+            if ($originalKey !== null) {
+                $_ENV['CACHE_ENCRYPTION_KEY'] = $originalKey;
+                KeyManager::clearCache();
+            }
+        }
+    }
 }
