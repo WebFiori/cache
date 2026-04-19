@@ -405,6 +405,18 @@ class MockStorage implements Storage {
             }
         }
     }
+
+    public function purgeExpired(): int {
+        $removed = 0;
+        $now = time();
+        foreach ($this->data as $key => $entry) {
+            if ($now > $entry['expires']) {
+                unset($this->data[$key]);
+                $removed++;
+            }
+        }
+        return $removed;
+    }
 }
 
 /**
@@ -433,5 +445,9 @@ class FailingMockStorage implements Storage {
     
     public function flush(?string $prefix) {
         // Do nothing
+    }
+
+    public function purgeExpired(): int {
+        return 0;
     }
 }

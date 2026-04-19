@@ -67,6 +67,18 @@ class MemoryStorage implements Storage {
         }
     }
 
+    public function purgeExpired(): int {
+        $removed = 0;
+        $now = time();
+        foreach ($this->store as $k => $entry) {
+            if ($now > $entry['expires']) {
+                unset($this->store[$k]);
+                $removed++;
+            }
+        }
+        return $removed;
+    }
+
     public function count(): int {
         return count($this->store);
     }
