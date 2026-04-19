@@ -2,7 +2,7 @@
 /**
  * This file is licensed under MIT License.
  *
- * Copyright (c) 2024 Ibrahim BinAlshikh and Contributors
+ * Copyright (c) 2024 WebFiori Framework
  *
  * For more information on the license, please visit:
  * https://github.com/WebFiori/.github/blob/main/LICENSE
@@ -86,7 +86,7 @@ class FileStorage implements Storage {
      * key exist in the cache and not yet expired.
      */
     public function has(string $key, ?string $prefix): bool {
-        return $this->read($key, $prefix) !== null;
+        return $this->readItem($key, $prefix) !== null;
     }
     
     /**
@@ -239,6 +239,51 @@ class FileStorage implements Storage {
                 throw new CacheStorageException("Failed to create cache file: {$filePath}");
             }
         }
+    }
+    
+    /**
+     * Removes all expired items from the cache directory.
+     *
+     * Scans all .cache files, reads their expiry timestamp, and deletes
+     * any that have expired. This prevents stale files from accumulating
+     * on disk when items are never read after expiration.
+     *
+     * @return int The number of expired items that were removed.
+     */
+    public function purgeExpired(): int {
+        $removed = 0;
+        $files = glob($this->cacheDir . DIRECTORY_SEPARATOR . '*.cache');
+
+        if ($files === false) {
+            return 0;
+        }
+
+        $now = time();
+
+        foreach ($files as $file) {
+            $content = @file_get_contents($file);
+
+            if ($content === false) {
+                continue;
+            }
+
+            $data = @unserialize($content);
+
+            if ($data === false || !isset($data['expires'])) {
+                // Corrupted file, remove it
+                @unlink($file);
+                $removed++;
+                continue;
+            }
+
+            if ($now > $data['expires']) {
+                if (@unlink($file)) {
+                    $removed++;
+                }
+            }
+        }
+
+        return $removed;
     }
     
     /**

@@ -2,7 +2,7 @@
 /**
  * This file is licensed under MIT License.
  *
- * Copyright (c) 2024 Ibrahim BinAlshikh and Contributors
+ * Copyright (c) 2024 WebFiori Framework
  *
  * For more information on the license, please visit:
  * https://github.com/WebFiori/.github/blob/main/LICENSE
@@ -120,10 +120,14 @@ class Cache {
     public static function get(string $key, ?callable $generator = null, int $ttl = 60, array $params = []) {
         self::validateKey($key);
         
-        $data = self::getDriver()->read($key, self::getPrefix());
+        $item = self::getDriver()->readItem($key, self::getPrefix());
 
-        if ($data !== null && $data !== false) {
-            return $data;
+        if ($item !== null) {
+            try {
+                return $item->getDataDecrypted();
+            } catch (CacheException $e) {
+                // Decryption failed, treat as cache miss
+            }
         }
 
         if (!is_callable($generator)) {
@@ -133,7 +137,12 @@ class Cache {
         $newData = call_user_func_array($generator, $params);
 
         if (self::isEnabled()) {
-            self::storeItem($key, $newData, $ttl);
+            try {
+                self::storeItem($key, $newData, $ttl);
+            } catch (CacheStorageException $e) {
+                // Storage failed, but still return the generated data.
+                // The data just won't be cached.
+            }
         }
 
         return $newData;
@@ -205,15 +214,19 @@ class Cache {
      * provided data and ttl.
      *
      * @return bool If successfully added, the method will return true. False
-     * otherwise.
+     * otherwise. Returns false if storage fails.
      * @throws InvalidCacheKeyException If the key is invalid
      */
     public static function set(string $key, $data, int $ttl = 60, bool $override = false): bool {
         self::validateKey($key);
         
         if (!self::has($key) || $override === true) {
-            self::storeItem($key, $data, $ttl);
-            return true;
+            try {
+                self::storeItem($key, $data, $ttl);
+                return true;
+            } catch (CacheStorageException $e) {
+                return false;
+            }
         }
 
         return false;
@@ -243,6 +256,18 @@ class Cache {
      */
     public static function setEnabled(bool $enable): void {
         self::getInst()->isEnabled = $enable;
+    }
+    
+    /**
+     * Removes all expired items from the cache storage.
+     *
+     * This is useful for periodic cleanup to prevent stale cache files
+     * from accumulating. Can be called from a cron job or maintenance script.
+     *
+     * @return int The number of expired items that were removed.
+     */
+    public static function purgeExpired(): int {
+        return self::getDriver()->purgeExpired();
     }
     
     /**
@@ -315,6 +340,7 @@ class Cache {
      * @param string $key The cache key
      * @param mixed $data The data to store
      * @param int $ttl Time to live in seconds
+     * @throws CacheStorageException If storage fails
      */
     private static function storeItem(string $key, $data, int $ttl): void {
         // Use KeyManager for encryption key, but continue without encryption if not available
@@ -328,22 +354,12 @@ class Cache {
             $config->setEncryptionEnabled(false);
             $item->setSecurityConfig($config);
             $item->setPrefix(self::getPrefix());
-            try {
-                self::getDriver()->store($item);
-            } catch (CacheStorageException $e) {
-                // Silently fail if storage fails - this allows the application to continue
-                // The data will just not be cached
-            }
+            self::getDriver()->store($item);
             return;
         }
         
         $item = new Item($key, $data, $ttl, $secretKey);
         $item->setPrefix(self::getPrefix());
-        try {
-            self::getDriver()->store($item);
-        } catch (CacheStorageException $e) {
-            // Silently fail if storage fails - this allows the application to continue
-            // The data will just not be cached
-        }
+        self::getDriver()->store($item);
     }
 }

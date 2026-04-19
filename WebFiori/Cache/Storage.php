@@ -2,7 +2,7 @@
 /**
  * This file is licensed under MIT License.
  *
- * Copyright (c) 2024 Ibrahim BinAlshikh and Contributors
+ * Copyright (c) 2024 WebFiori Framework
  *
  * For more information on the license, please visit:
  * https://github.com/WebFiori/.github/blob/main/LICENSE
@@ -81,4 +81,14 @@ interface Storage {
      * @param Item $item An item that will be added to the cache.
      */
     public function store(Item $item);
+    /**
+     * Removes all expired items from the cache.
+     *
+     * This method should scan all cached items and remove any that have
+     * exceeded their time-to-live. This is useful for periodic cleanup
+     * to prevent stale cache files from accumulating on disk.
+     *
+     * @return int The number of expired items that were removed.
+     */
+    public function purgeExpired(): int;
 }
