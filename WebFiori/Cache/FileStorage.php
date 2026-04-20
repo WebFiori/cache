@@ -274,7 +274,17 @@ class FileStorage implements Storage {
                 'encrypted' => $securityConfig->isEncryptionEnabled()
             ]);
 
-            if (file_put_contents($tempFile, $dataSer, LOCK_EX) === false) {
+            set_error_handler(function (int $errno, string $errstr) use ($tempFile) {
+                throw new CacheStorageException("Failed to write cache file: {$tempFile}");
+            });
+
+            try {
+                $written = file_put_contents($tempFile, $dataSer, LOCK_EX);
+            } finally {
+                restore_error_handler();
+            }
+
+            if ($written === false) {
                 throw new CacheStorageException("Failed to write cache file: {$tempFile}");
             }
 
