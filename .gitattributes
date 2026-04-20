@@ -1,6 +1,5 @@
 # Files and folders here will be not included when creating package
 /tests export-ignore
-/webfiori/cache/cache export-ignore
 /CHANGELOG.md export-ignore
 /.github export-ignore
 /.gitignore export-ignore
