@@ -20,11 +20,13 @@ A simple, secure, and highly customizable caching engine for PHP. This library p
 
 ## Features
 
+- **Instance-based API** — fully DI-friendly, multiple cache pools can coexist
+- **Static facade** (`CacheFacade`) for quick usage without DI
 - **Time-based caching** with configurable TTL (Time-to-Live)
 - **Built-in encryption** for sensitive data protection
-- **Multiple storage backends** (File-based included, extensible via Storage interface)
-- **Static API** for backward compatibility and simple usage
-- **Key prefixing** for namespace isolation
+- **Multiple storage backends** (File-based included, extensible via `Storage` interface)
+- **Key prefixing** for namespace isolation (`withPrefix()` returns a new instance — no mutation)
+- **Expired item cleanup** via `purgeExpired()`
 - **Comprehensive error handling** with custom exceptions
 
 ## Installation
@@ -51,71 +53,98 @@ This library requires **PHP 8.1 or higher**.
 require_once 'vendor/autoload.php';
 
 use WebFiori\Cache\Cache;
+use WebFiori\Cache\FileStorage;
 use WebFiori\Cache\KeyManager;
 
 // Set up encryption key (recommended for production)
 $_ENV['CACHE_ENCRYPTION_KEY'] = KeyManager::generateKey();
 
+// Create a cache instance
+$cache = new Cache(new FileStorage('/path/to/cache'));
+
 // Store and retrieve
-Cache::set('greeting', 'Hello, World!', 3600);
-echo Cache::get('greeting'); // Hello, World!
+$cache->set('greeting', 'Hello, World!', 3600);
+echo $cache->get('greeting'); // Hello, World!
 
 // Auto-populate on cache miss using a generator callback
-$data = Cache::get('user_data', function () {
+$data = $cache->get('user_data', function () {
     return fetchUserDataFromDatabase();
 }, 3600);
 
 // Check, delete, flush
-Cache::has('greeting');   // true
-Cache::delete('greeting');
-Cache::flush();
+$cache->has('greeting');   // true
+$cache->delete('greeting');
+$cache->flush();
 ```
 
-> For a complete runnable version of this, see [examples/basic/01-set-and-get](examples/basic/01-set-and-get/).
+> For a complete runnable version of this, see the [Set and Get](examples/basic/01-set-and-get/) example.
 
 ## Usage
 
 ### Basic Operations
 
 ```php
+use WebFiori\Cache\Cache;
+use WebFiori\Cache\FileStorage;
+
+$cache = new Cache(new FileStorage('/path/to/cache'));
+
 // Store with default TTL (60 seconds)
-Cache::set('key', 'value');
+$cache->set('key', 'value');
 
 // Store with custom TTL and override existing
-Cache::set('key', 'new_value', 3600, true);
+$cache->set('key', 'new_value', 3600, true);
 
 // Retrieve (returns null on miss)
-$data = Cache::get('key');
+$data = $cache->get('key');
 
 // Generator with parameters
-$profile = Cache::get('user_profile', function ($userId, $includePrefs) {
+$profile = $cache->get('user_profile', function ($userId, $includePrefs) {
     return fetchUserProfile($userId, $includePrefs);
 }, 3600, [123, true]);
 
 // Update TTL of existing item
-Cache::setTTL('key', 7200);
+$cache->setTTL('key', 7200);
 
 // Enable/disable caching (useful for debugging)
-Cache::setEnabled(false);
+$cache->setEnabled(false);
 ```
 
-> Working examples for each operation: [examples/basic/](examples/basic/)
+> Working examples for each operation: [basic examples](examples/basic/)
 
 ### Prefix Isolation
 
-```php
-Cache::withPrefix('users_')->set('count', 100, 60);
-Cache::withPrefix('orders_')->set('count', 250, 60);
+`withPrefix()` returns a new `Cache` instance — the original is never mutated.
 
-// Each prefix is an isolated namespace
-Cache::withPrefix('users_')->get('count');  // 100
-Cache::withPrefix('orders_')->get('count'); // 250
+```php
+$users = $cache->withPrefix('users_');
+$orders = $cache->withPrefix('orders_');
+
+$users->set('count', 100, 60);
+$orders->set('count', 250, 60);
+
+$users->get('count');  // 100
+$orders->get('count'); // 250
 
 // Flush only one prefix
-Cache::withPrefix('users_')->flush();
+$users->flush();
 ```
 
-> See [examples/advanced/01-prefix-isolation](examples/advanced/01-prefix-isolation/) and [examples/advanced/02-prefix-flush](examples/advanced/02-prefix-flush/).
+> See [Prefix Isolation](examples/advanced/01-prefix-isolation/) and [Prefix Flush](examples/advanced/02-prefix-flush/).
+
+### Static Facade
+
+For quick usage without dependency injection, use `CacheFacade`:
+
+```php
+use WebFiori\Cache\CacheFacade;
+
+CacheFacade::set('key', 'value', 60);
+echo CacheFacade::get('key');
+
+// withPrefix() returns a Cache instance
+CacheFacade::withPrefix('users_')->set('count', 100, 60);
+```
 
 ### Security & Encryption
 
@@ -140,7 +169,7 @@ $key = KeyManager::generateKey();
 KeyManager::setEncryptionKey($key);
 ```
 
-> See [examples/advanced/03-encryption-key-management](examples/advanced/03-encryption-key-management/), [examples/advanced/04-security-config](examples/advanced/04-security-config/), and [examples/advanced/06-encrypt-decrypt-roundtrip](examples/advanced/06-encrypt-decrypt-roundtrip/).
+> See [Encryption Key Management](examples/advanced/03-encryption-key-management/), [Security Config](examples/advanced/04-security-config/), and [Encrypt/Decrypt Round-Trip](examples/advanced/06-encrypt-decrypt-roundtrip/).
 
 ### Custom Storage Drivers
 
@@ -151,24 +180,23 @@ use WebFiori\Cache\Storage;
 use WebFiori\Cache\Item;
 
 class MemoryStorage implements Storage {
-    private array $store = [];
-
     public function store(Item $item) { /* ... */ }
     public function read(string $key, ?string $prefix) { /* ... */ }
     public function readItem(string $key, ?string $prefix): ?Item { /* ... */ }
     public function has(string $key, ?string $prefix): bool { /* ... */ }
     public function delete(string $key) { /* ... */ }
     public function flush(?string $prefix) { /* ... */ }
+    public function purgeExpired(): int { /* ... */ }
 }
 
-Cache::setDriver(new MemoryStorage());
+$cache = new Cache(new MemoryStorage());
 ```
 
-> Full working implementation: [examples/advanced/07-custom-storage-driver](examples/advanced/07-custom-storage-driver/).
+> Full working implementation: [Custom Storage Driver](examples/advanced/07-custom-storage-driver/).
 
 ## API Reference
 
-### Cache Class (Static Methods)
+### Cache Class (Instance Methods)
 
 | Method | Description | Returns |
 |--------|-------------|---------|
@@ -181,8 +209,19 @@ Cache::setDriver(new MemoryStorage());
 | `setTTL($key, $ttl)` | Update item TTL | `bool` |
 | `isEnabled()` / `setEnabled($bool)` | Check or toggle caching | `bool` / `void` |
 | `setDriver($driver)` / `getDriver()` | Set or get storage driver | `void` / `Storage` |
-| `withPrefix($prefix)` | Set key prefix for namespace isolation | `Cache` |
-| `create($driver, $enabled, $prefix)` | Factory method for DI | `Cache` |
+| `withPrefix($prefix)` | Returns new `Cache` instance with prefix | `Cache` |
+| `getPrefix()` | Get current prefix | `string` |
+| `purgeExpired()` | Remove all expired items from storage | `int` |
+
+### CacheFacade Class (Static Methods)
+
+Same methods as `Cache`, plus:
+
+| Method | Description | Returns |
+|--------|-------------|---------|
+| `getInstance()` | Get the default `Cache` instance | `Cache` |
+| `setInstance($cache)` | Replace the default instance | `void` |
+| `reset()` | Destroy the default instance (for testing) | `void` |
 
 ### Item Class
 
@@ -205,10 +244,9 @@ Cache::setDriver(new MemoryStorage());
 | `has(string $key, ?string $prefix)` | Check item existence |
 | `delete(string $key)` | Delete item |
 | `flush(?string $prefix)` | Clear cache |
+| `purgeExpired()` | Remove expired items, return count removed |
 
 ## Error Handling
-
-The library provides specific exceptions for different error conditions:
 
 | Exception | When |
 |-----------|------|
@@ -217,7 +255,34 @@ The library provides specific exceptions for different error conditions:
 | `CacheDriverException` | Invalid driver implementation |
 | `CacheException` | Base exception, missing encryption key |
 
-> See [examples/advanced/10-error-handling](examples/advanced/10-error-handling/) for all cases.
+> See [Error Handling](examples/advanced/10-error-handling/) for all cases.
+
+## Upgrading from v2
+
+v3 changes `Cache` from a static singleton to an instance class. Migration is straightforward:
+
+```php
+// v2 (static singleton)                    // v3 (instance-based)
+Cache::set('k', 'v', 60);                  $cache = new Cache(new FileStorage($path));
+Cache::get('k');                            $cache->set('k', 'v', 60);
+                                            $cache->get('k');
+
+Cache::withPrefix('x')->get('k');           $cache->withPrefix('x')->get('k');
+// ⚠️ prefix leaked to all future calls    // ✅ prefix is scoped, original unchanged
+
+Cache::setDriver($driver);                  $cache = new Cache($driver);
+
+Cache::create($driver, true, 'pfx');        new Cache($driver, true, 'pfx');
+```
+
+If you prefer the static API, use `CacheFacade` — it works identically to v2's `Cache`:
+
+```php
+use WebFiori\Cache\CacheFacade;
+
+CacheFacade::set('k', 'v', 60);
+CacheFacade::get('k');
+```
 
 ## Examples
 
@@ -227,13 +292,13 @@ The [examples/](examples/) directory contains 23 self-contained, runnable sample
 
 | # | Example | What it demonstrates |
 |---|---------|----------------------|
-| 01 | [Set and Get](examples/basic/01-set-and-get/) | `Cache::set()` and `Cache::get()` |
+| 01 | [Set and Get](examples/basic/01-set-and-get/) | `set()` and `get()` |
 | 02 | [Get with Generator](examples/basic/02-get-with-generator/) | Auto-populate on cache miss |
 | 03 | [Generator with Params](examples/basic/03-generator-with-params/) | Pass arguments to the callback |
-| 04 | [Check Existence](examples/basic/04-check-existence/) | `Cache::has()` |
-| 05 | [Delete Item](examples/basic/05-delete-item/) | `Cache::delete()` |
-| 06 | [Flush Cache](examples/basic/06-flush-cache/) | `Cache::flush()` |
-| 07 | [Update TTL](examples/basic/07-update-ttl/) | `Cache::setTTL()` |
+| 04 | [Check Existence](examples/basic/04-check-existence/) | `has()` |
+| 05 | [Delete Item](examples/basic/05-delete-item/) | `delete()` |
+| 06 | [Flush Cache](examples/basic/06-flush-cache/) | `flush()` |
+| 07 | [Update TTL](examples/basic/07-update-ttl/) | `setTTL()` |
 | 08 | [Override Behavior](examples/basic/08-override-behavior/) | `set()` with/without override |
 | 09 | [TTL Expiration](examples/basic/09-ttl-expiration/) | Items expire after TTL |
 | 10 | [Enable / Disable](examples/basic/10-enable-disable/) | Toggle caching on/off |
@@ -254,7 +319,7 @@ The [examples/](examples/) directory contains 23 self-contained, runnable sample
 | 08 | [File Storage Custom Path](examples/advanced/08-file-storage-custom-path/) | Custom cache directory |
 | 09 | [File Permissions](examples/advanced/09-file-permissions/) | Default and custom permissions |
 | 10 | [Error Handling](examples/advanced/10-error-handling/) | All exception types |
-| 11 | [Factory and DI](examples/advanced/11-factory-and-di/) | `Cache::create()` for DI |
+| 11 | [Factory and DI](examples/advanced/11-factory-and-di/) | Constructor-based DI |
 
 Run any example:
 

@@ -1,5 +1,6 @@
 <?php
-require_once __DIR__ . '/../../../vendor/autoload.php';
+
+require_once __DIR__.'/../../../vendor/autoload.php';
 
 use WebFiori\Cache\FileStorage;
 use WebFiori\Cache\Item;
@@ -8,7 +9,7 @@ use WebFiori\Cache\SecurityConfig;
 
 $_ENV['CACHE_ENCRYPTION_KEY'] = KeyManager::generateKey();
 
-$cacheDir = __DIR__ . '/perm_cache';
+$cacheDir = __DIR__.'/perm_cache';
 
 // 1. Default permissions (0600 file, 0700 directory)
 $storage = new FileStorage($cacheDir);
@@ -16,7 +17,7 @@ $item = new Item('default_perms', 'data', 60, KeyManager::getEncryptionKey());
 $storage->store($item);
 
 $dirPerms = decoct(fileperms($cacheDir) & 0777);
-$files = glob($cacheDir . '/*.cache');
+$files = glob($cacheDir.'/*.cache');
 $filePerms = decoct(fileperms($files[0]) & 0777);
 
 echo "Default permissions:\n";
@@ -38,7 +39,7 @@ $item2->setSecurityConfig($config);
 $storage2->store($item2);
 
 $dirPerms2 = decoct(fileperms($cacheDir) & 0777);
-$files2 = glob($cacheDir . '/*.cache');
+$files2 = glob($cacheDir.'/*.cache');
 $filePerms2 = decoct(fileperms($files2[0]) & 0777);
 
 echo "Custom permissions:\n";

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * This file is licensed under MIT License.
  *
@@ -10,8 +11,8 @@
  */
 namespace WebFiori\Cache;
 
-use WebFiori\Cache\Exceptions\CacheStorageException;
 use WebFiori\Cache\Exceptions\CacheException;
+use WebFiori\Cache\Exceptions\CacheStorageException;
 
 /**
  * File based cache storage engine.
@@ -19,7 +20,7 @@ use WebFiori\Cache\Exceptions\CacheException;
 class FileStorage implements Storage {
     private $cacheDir;
     private $data;
-    
+
     /**
      * Creates new instance of the class.
      *
@@ -33,7 +34,7 @@ class FileStorage implements Storage {
     public function __construct(string $storagePath) {
         $this->setPath($storagePath);
     }
-    
+
     /**
      * Removes an item from the cache.
      *
@@ -49,7 +50,7 @@ class FileStorage implements Storage {
             }
         }
     }
-    
+
     /**
      * Removes all cached items.
      * 
@@ -66,7 +67,7 @@ class FileStorage implements Storage {
             }
         }
     }
-    
+
     /**
      * Returns a string that represents the path to the folder which is used to
      * create cache files.
@@ -77,7 +78,7 @@ class FileStorage implements Storage {
     public function getPath() : string {
         return $this->cacheDir;
     }
-    
+
     /**
      * Checks if an item exist in the cache.
      * @param string $key The value of item key.
@@ -88,159 +89,7 @@ class FileStorage implements Storage {
     public function has(string $key, ?string $prefix): bool {
         return $this->readItem($key, $prefix) !== null;
     }
-    
-    /**
-     * Reads and returns the data stored in cache item given its key.
-     *
-     * @param string $key The key of the item.
-     *
-     * @return mixed|null If cache item is not expired, its data is returned. Other than
-     * that, null is returned.
-     * @throws CacheStorageException If reading fails
-     */
-    public function read(string $key, ?string $prefix) {
-        $item = $this->readItem($key, $prefix);
 
-        if ($item !== null) {
-            try {
-                return $item->getDataDecrypted();
-            } catch (CacheException $e) {
-                // If decryption fails, delete the corrupted item and return null
-                $this->delete($key);
-                return null;
-            }
-        }
-
-        return null;
-    }
-    
-    /**
-     * Reads cache item as an object given its key.
-     *
-     * @param string $key The unique identifier of the item.
-     *
-     * @return Item|null If cache item exist and is not expired,
-     * an object of type 'Item' is returned. Other than
-     * that, null is returned.
-     * @throws CacheStorageException If reading fails
-     */
-    public function readItem(string $key, ?string $prefix) {
-        $this->initData($key, $prefix);
-        $now = time();
-
-        if ($now > $this->data['expires']) {
-            $this->delete($key);
-
-            return null;
-        }
-        
-        // Use KeyManager for encryption key if not provided, but handle gracefully if not available
-        $secretKey = '';
-        $encryptionEnabled = true;
-        try {
-            $secretKey = KeyManager::getEncryptionKey();
-        } catch (CacheException $e) {
-            // If no key available, assume encryption is disabled
-            $encryptionEnabled = false;
-        }
-        
-        // Create item with the stored encrypted/serialized data
-        $item = new Item($key, $this->data['data'], $this->data['ttl'], $secretKey);
-        $item->setCreatedAt($this->data['created_at']);
-        $item->setPrefix($prefix ?? '');
-        
-        // Configure encryption based on what was stored
-        $wasEncrypted = $this->data['encrypted'] ?? true;
-        if (!$wasEncrypted || !$encryptionEnabled) {
-            $config = new SecurityConfig();
-            $config->setEncryptionEnabled(false);
-            $item->setSecurityConfig($config);
-        }
-        
-        // Mark data as encrypted only if it was actually encrypted when stored
-        $item->setDataIsEncrypted($wasEncrypted);
-        
-        // Mark that this data came from storage
-        $item->setDataFromStorage(true);
-
-        return $item;
-    }
-    
-    /**
-     * Sets the path to the folder which is used to create cache files.
-     *
-     * @param string $path
-     * 
-     * @throws CacheStorageException If the path is invalid or not writable
-     */
-    public function setPath(string $path) {
-        if (empty(trim($path))) {
-            throw new CacheStorageException("Cache path cannot be empty");
-        }
-        
-        // Check if path exists and is writable, or if parent directory is writable for creation
-        if (file_exists($path)) {
-            if (!is_dir($path)) {
-                throw new CacheStorageException("Cache path exists but is not a directory: {$path}");
-            }
-            if (!is_writable($path)) {
-                throw new CacheStorageException("Cache path is not writable: {$path}");
-            }
-        } else {
-            $parentDir = dirname($path);
-            if (!is_writable($parentDir)) {
-                throw new CacheStorageException("Cannot create cache directory, parent directory is not writable: {$parentDir}");
-            }
-        }
-        
-        $this->cacheDir = $path;
-    }
-    
-    /**
-     * Store an item into the cache.
-     *
-     * @param Item $item An item that will be added to the cache.
-     * @throws CacheStorageException If storage operations fail
-     */
-    public function store(Item $item) {
-        if ($item->getTTL() > 0) {
-            $securityConfig = $item->getSecurityConfig();
-            $filePath = $this->getPath().DIRECTORY_SEPARATOR.$item->getPrefix().md5($item->getKey()).'.cache';
-            $encryptedData = $item->getDataEncrypted();
-            $storageFolder = $this->getPath();
-
-            if (!is_dir($storageFolder) && !mkdir($storageFolder, $securityConfig->getDirectoryPermissions(), true)) {
-                throw new CacheStorageException("Failed to create cache directory: '{$storageFolder}'");
-            }
-            
-            // Create temporary file for atomic write
-            $tempFile = $filePath . '.tmp';
-            $dataSer = serialize([
-                'data' => $encryptedData,
-                'created_at' => time(),
-                'ttl' => $item->getTTL(),
-                'expires' => $item->getExpiryTime(),
-                'key' => $item->getKey(),
-                'encrypted' => $securityConfig->isEncryptionEnabled()
-            ]);
-            
-            if (file_put_contents($tempFile, $dataSer, LOCK_EX) === false) {
-                throw new CacheStorageException("Failed to write cache file: {$tempFile}");
-            }
-            
-            // Set restrictive permissions and atomic rename
-            if (!chmod($tempFile, $securityConfig->getFilePermissions())) {
-                unlink($tempFile);
-                throw new CacheStorageException("Failed to set permissions on cache file: {$tempFile}");
-            }
-            
-            if (!rename($tempFile, $filePath)) {
-                unlink($tempFile);
-                throw new CacheStorageException("Failed to create cache file: {$filePath}");
-            }
-        }
-    }
-    
     /**
      * Removes all expired items from the cache directory.
      *
@@ -252,7 +101,7 @@ class FileStorage implements Storage {
      */
     public function purgeExpired(): int {
         $removed = 0;
-        $files = glob($this->cacheDir . DIRECTORY_SEPARATOR . '*.cache');
+        $files = glob($this->cacheDir.DIRECTORY_SEPARATOR.'*.cache');
 
         if ($files === false) {
             return 0;
@@ -285,7 +134,173 @@ class FileStorage implements Storage {
 
         return $removed;
     }
-    
+
+    /**
+     * Reads and returns the data stored in cache item given its key.
+     *
+     * @param string $key The key of the item.
+     *
+     * @return mixed|null If cache item is not expired, its data is returned. Other than
+     * that, null is returned.
+     * @throws CacheStorageException If reading fails
+     */
+    public function read(string $key, ?string $prefix) {
+        $item = $this->readItem($key, $prefix);
+
+        if ($item !== null) {
+            try {
+                return $item->getDataDecrypted();
+            } catch (CacheException $e) {
+                // If decryption fails, delete the corrupted item and return null
+                $this->delete(($prefix ?? '').$key);
+
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Reads cache item as an object given its key.
+     *
+     * @param string $key The unique identifier of the item.
+     *
+     * @return Item|null If cache item exist and is not expired,
+     * an object of type 'Item' is returned. Other than
+     * that, null is returned.
+     * @throws CacheStorageException If reading fails
+     */
+    public function readItem(string $key, ?string $prefix) {
+        $this->initData($key, $prefix);
+        $now = time();
+
+        if ($now > $this->data['expires']) {
+            $this->delete(($prefix ?? '').$key);
+
+            return null;
+        }
+
+        // Use KeyManager for encryption key if not provided, but handle gracefully if not available
+        $secretKey = '';
+        $encryptionEnabled = true;
+        try {
+            $secretKey = KeyManager::getEncryptionKey();
+        } catch (CacheException $e) {
+            // If no key available, assume encryption is disabled
+            $encryptionEnabled = false;
+        }
+
+        // Create item with the stored encrypted/serialized data
+        $item = new Item($key, $this->data['data'], $this->data['ttl'], $secretKey);
+        $item->setCreatedAt($this->data['created_at']);
+        $item->setPrefix($prefix ?? '');
+
+        // Configure encryption based on what was stored
+        $wasEncrypted = $this->data['encrypted'] ?? true;
+
+        if (!$wasEncrypted || !$encryptionEnabled) {
+            $config = new SecurityConfig();
+            $config->setEncryptionEnabled(false);
+            $item->setSecurityConfig($config);
+        }
+
+        // Mark data as encrypted only if it was actually encrypted when stored
+        $item->setDataIsEncrypted($wasEncrypted);
+
+        // Mark that this data came from storage
+        $item->setDataFromStorage(true);
+
+        return $item;
+    }
+
+    /**
+     * Sets the path to the folder which is used to create cache files.
+     *
+     * @param string $path
+     * 
+     * @throws CacheStorageException If the path is invalid or not writable
+     */
+    public function setPath(string $path) {
+        if (empty(trim($path))) {
+            throw new CacheStorageException("Cache path cannot be empty");
+        }
+
+        // Check if path exists and is writable, or if parent directory is writable for creation
+        if (file_exists($path)) {
+            if (!is_dir($path)) {
+                throw new CacheStorageException("Cache path exists but is not a directory: {$path}");
+            }
+
+            if (!is_writable($path)) {
+                throw new CacheStorageException("Cache path is not writable: {$path}");
+            }
+        } else {
+            $parentDir = dirname($path);
+
+            if (!is_writable($parentDir)) {
+                throw new CacheStorageException("Cannot create cache directory, parent directory is not writable: {$parentDir}");
+            }
+        }
+
+        $this->cacheDir = $path;
+    }
+
+    /**
+     * Store an item into the cache.
+     *
+     * @param Item $item An item that will be added to the cache.
+     * @throws CacheStorageException If storage operations fail
+     */
+    public function store(Item $item) {
+        if ($item->getTTL() > 0) {
+            $securityConfig = $item->getSecurityConfig();
+            $filePath = $this->getPath().DIRECTORY_SEPARATOR.$item->getPrefix().md5($item->getKey()).'.cache';
+            $encryptedData = $item->getDataEncrypted();
+            $storageFolder = $this->getPath();
+
+            if (!is_dir($storageFolder) && !mkdir($storageFolder, $securityConfig->getDirectoryPermissions(), true)) {
+                throw new CacheStorageException("Failed to create cache directory: '{$storageFolder}'");
+            }
+
+            // Create temporary file for atomic write
+            $tempFile = $filePath.'.tmp';
+            $dataSer = serialize([
+                'data' => $encryptedData,
+                'created_at' => time(),
+                'ttl' => $item->getTTL(),
+                'expires' => $item->getExpiryTime(),
+                'key' => $item->getKey(),
+                'encrypted' => $securityConfig->isEncryptionEnabled()
+            ]);
+
+            set_error_handler(function (int $errno, string $errstr) use ($tempFile) {
+                throw new CacheStorageException("Failed to write cache file: {$tempFile}");
+            });
+
+            try {
+                $written = file_put_contents($tempFile, $dataSer, LOCK_EX);
+            } finally {
+                restore_error_handler();
+            }
+
+            if ($written === false) {
+                throw new CacheStorageException("Failed to write cache file: {$tempFile}");
+            }
+
+            // Set restrictive permissions and atomic rename
+            if (!chmod($tempFile, $securityConfig->getFilePermissions())) {
+                unlink($tempFile);
+                throw new CacheStorageException("Failed to set permissions on cache file: {$tempFile}");
+            }
+
+            if (!rename($tempFile, $filePath)) {
+                unlink($tempFile);
+                throw new CacheStorageException("Failed to create cache file: {$filePath}");
+            }
+        }
+    }
+
     /**
      * Initializes data for a cache item.
      * 
@@ -310,19 +325,21 @@ class FileStorage implements Storage {
         }
 
         $content = file_get_contents($filePath);
+
         if ($content === false) {
             throw new CacheStorageException("Failed to read cache file: {$filePath}");
         }
-        
+
         try {
             $this->data = @unserialize($content);
+
             if ($this->data === false) {
                 throw new CacheStorageException("Failed to unserialize cache data from: {$filePath}");
             }
         } catch (Error | Exception $e) {
             throw new CacheStorageException("Failed to unserialize cache data from: {$filePath}");
         }
-        
+
         // Handle backward compatibility - if 'encrypted' field doesn't exist, assume encrypted
         if (!isset($this->data['encrypted'])) {
             $this->data['encrypted'] = true;

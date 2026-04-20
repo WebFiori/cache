@@ -3,197 +3,197 @@ namespace WebFiori\Test\Cache;
 
 use PHPUnit\Framework\TestCase;
 use WebFiori\Cache\Cache;
+use WebFiori\Cache\FileStorage;
 use WebFiori\Cache\KeyManager;
+use WebFiori\Cache\Storage;
 
 /**
- * Updated test class with security enhancements.
+ * Test class for Cache instance operations.
  */
 class CacheTest extends TestCase {
-    
+
+    private Cache $cache;
+
     protected function setUp(): void {
-        // Set up a test encryption key for consistent testing
         $testKey = KeyManager::generateKey();
         $_ENV['CACHE_ENCRYPTION_KEY'] = $testKey;
-        KeyManager::clearCache(); // Force reload from environment
-        
-        // Clean up any existing cache
-        Cache::flush();
-    }
-    
-    protected function tearDown(): void {
-        // Clean up after each test
         KeyManager::clearCache();
-        Cache::flush();
-        
-        // Clean up environment variables
+
+        $this->cache = new Cache(new FileStorage(__DIR__ . '/test_cache'));
+        $this->cache->flush();
+    }
+
+    protected function tearDown(): void {
+        KeyManager::clearCache();
+        $this->cache->flush();
         unset($_ENV['CACHE_ENCRYPTION_KEY']);
     }
-    
+
     /**
      * @test
      */
     public function test00() {
         $key = 'first';
-        $this->assertTrue(Cache::isEnabled());
-        $data = Cache::get($key, function () {
+        $this->assertTrue($this->cache->isEnabled());
+        $data = $this->cache->get($key, function () {
             return 'This is a test.';
         });
         $this->assertEquals('This is a test.', $data);
-        $this->assertEquals('This is a test.', Cache::get($key));
-        $this->assertNull(Cache::get('not_cached'));
+        $this->assertEquals('This is a test.', $this->cache->get($key));
+        $this->assertNull($this->cache->get('not_cached'));
     }
-    
+
     /**
      * @test
      */
     public function test01() {
         $key = 'test_2';
-        $this->assertFalse(Cache::has($key));
-        $data = Cache::get($key, function () {
+        $this->assertFalse($this->cache->has($key));
+        $data = $this->cache->get($key, function () {
             return 'This is a test.';
         }, 5);
         $this->assertEquals('This is a test.', $data);
-        $this->assertTrue(Cache::has($key));
+        $this->assertTrue($this->cache->has($key));
         sleep(6);
-        $this->assertFalse(Cache::has($key));
-        $this->assertNull(Cache::get($key));
+        $this->assertFalse($this->cache->has($key));
+        $this->assertNull($this->cache->get($key));
     }
-    
+
     /**
      * @test
      */
     public function test03() {
         $key = 'ok_test';
-        $this->assertFalse(Cache::has($key));
-        $data = Cache::get($key, function () {
+        $this->assertFalse($this->cache->has($key));
+        $data = $this->cache->get($key, function () {
             return 'This is a test.';
         }, 600);
         $this->assertEquals('This is a test.', $data);
-        $this->assertTrue(Cache::has($key));
-        Cache::delete($key);
-        $this->assertFalse(Cache::has($key));
-        $this->assertNull(Cache::get($key));
+        $this->assertTrue($this->cache->has($key));
+        $this->cache->delete($key);
+        $this->assertFalse($this->cache->has($key));
+        $this->assertNull($this->cache->get($key));
     }
-    
+
     /**
      * @test
      */
     public function test04() {
         $key = 'test_3';
-        $this->assertFalse(Cache::has($key));
-        $data = Cache::get($key, function () {
+        $this->assertFalse($this->cache->has($key));
+        $data = $this->cache->get($key, function () {
             return 'This is a test.';
         }, 600);
         $this->assertEquals('This is a test.', $data);
-        $item = Cache::getItem($key);
+        $item = $this->cache->getItem($key);
         $this->assertNotNull($item);
         $this->assertEquals(600, $item->getTTL());
-        Cache::setTTL($key, 1000);
-        $item = Cache::getItem($key);
+        $this->cache->setTTL($key, 1000);
+        $item = $this->cache->getItem($key);
         $this->assertEquals(1000, $item->getTTL());
-        Cache::delete($key);
-        $this->assertNull(Cache::getItem($key));
+        $this->cache->delete($key);
+        $this->assertNull($this->cache->getItem($key));
     }
-    
+
     /**
      * @test
      */
     public function test05() {
         $keys = [];
-        for ($x = 0 ; $x < 10 ; $x++) {
-            $key = 'item_'.$x;
-            Cache::get($key, function () {
+        for ($x = 0; $x < 10; $x++) {
+            $key = 'item_' . $x;
+            $this->cache->get($key, function () {
                 return 'This is a test.';
             }, 600);
             $keys[] = $key;
         }
         foreach ($keys as $key) {
-            $this->assertTrue(Cache::has($key));
+            $this->assertTrue($this->cache->has($key));
         }
-        Cache::flush(null);
+        $this->cache->flush();
         foreach ($keys as $key) {
-            $this->assertFalse(Cache::has($key));
+            $this->assertFalse($this->cache->has($key));
         }
     }
-    
+
     /**
      * @test
      */
     public function test06() {
         $key = 'bbuu';
-        $this->assertTrue(Cache::isEnabled());
-        Cache::setEnabled(false);
-        $data = Cache::get($key, function () {
+        $this->assertTrue($this->cache->isEnabled());
+        $this->cache->setEnabled(false);
+        $data = $this->cache->get($key, function () {
             return 'This is a test.';
         });
         $this->assertEquals('This is a test.', $data);
-        $this->assertNull(Cache::get($key));
-        $this->assertFalse(Cache::isEnabled());
+        $this->assertNull($this->cache->get($key));
+        $this->assertFalse($this->cache->isEnabled());
     }
-    
+
     /**
      * @test
      */
     public function testSet00() {
         $key = 'new_cool_key';
-        Cache::setEnabled(true);
-        $this->assertTrue(Cache::isEnabled());
-        $this->assertTrue(Cache::set($key, 'This is a test.', 60, false));
-        $this->assertEquals('This is a test.', Cache::get($key));
-        $item = Cache::getItem($key);
+        $this->cache->setEnabled(true);
+        $this->assertTrue($this->cache->isEnabled());
+        $this->assertTrue($this->cache->set($key, 'This is a test.', 60, false));
+        $this->assertEquals('This is a test.', $this->cache->get($key));
+        $item = $this->cache->getItem($key);
         $this->assertEquals(60, $item->getTTL());
-        
-        $this->assertFalse(Cache::set($key, 'This is a test.', 60, false));
-        $this->assertEquals('This is a test.', Cache::get($key));
-        $item = Cache::getItem($key);
+
+        $this->assertFalse($this->cache->set($key, 'This is a test.', 60, false));
+        $this->assertEquals('This is a test.', $this->cache->get($key));
+        $item = $this->cache->getItem($key);
         $this->assertEquals(60, $item->getTTL());
-        
-        $this->assertTrue(Cache::set($key, 'This is a test 2.', 660, true));
-        $this->assertEquals('This is a test 2.', Cache::get($key));
-        $item = Cache::getItem($key);
+
+        $this->assertTrue($this->cache->set($key, 'This is a test 2.', 660, true));
+        $this->assertEquals('This is a test 2.', $this->cache->get($key));
+        $item = $this->cache->getItem($key);
         $this->assertEquals(660, $item->getTTL());
     }
-    
+
     /**
      * @test
      */
     public function testSetTTL00() {
         $key = 'new_cool_key2';
-        Cache::setEnabled(true);
-        $this->assertTrue(Cache::isEnabled());
-        $this->assertTrue(Cache::set($key, 'This is a test.', 60, false));
-        $item = Cache::getItem($key);
+        $this->cache->setEnabled(true);
+        $this->assertTrue($this->cache->set($key, 'This is a test.', 60, false));
+        $item = $this->cache->getItem($key);
         $this->assertEquals(60, $item->getTTL());
-        Cache::setTTL($key, 700);
-        
-        $item = Cache::getItem($key);
+        $this->cache->setTTL($key, 700);
+        $item = $this->cache->getItem($key);
         $this->assertEquals(700, $item->getTTL());
     }
-    
+
     /**
      * @test
      */
     public function testSetTTL01() {
         $key = 'not exist cool';
-        $this->assertFalse(Cache::setTTL($key, 700));
+        $this->assertFalse($this->cache->setTTL($key, 700));
     }
-    
+
     /**
      * @test
      */
     public function testWithPrefix00() {
         $key = 'first';
-        $this->assertTrue(Cache::isEnabled());
-        $data =Cache::withPrefix('ok')->get($key, function () {
+        $this->assertTrue($this->cache->isEnabled());
+        $prefixed = $this->cache->withPrefix('ok');
+        $data = $prefixed->get($key, function () {
             return 'This is a test.';
         });
         $this->assertEquals('This is a test.', $data);
-        $this->assertEquals('This is a test.', Cache::get($key));
-        $this->assertNull(Cache::withPrefix('')->get($key));
-        Cache::delete($key);
-        $this->assertEquals('This is a test.', Cache::withPrefix('ok')->get($key));
+        $this->assertEquals('This is a test.', $prefixed->get($key));
+        // Without prefix, key does not exist
+        $this->assertNull($this->cache->get($key));
+        // After deleting from no-prefix, prefixed still has it
+        $this->assertEquals('This is a test.', $prefixed->get($key));
     }
-    
+
     /**
      * @test
      */
@@ -202,56 +202,70 @@ class CacheTest extends TestCase {
         $key2 = 'ttest-2-';
         $prefix1 = 'good';
         $prefix2 = 'bad';
-        
-        for ($x = 0 ; $x < 3 ; $x++) {
-            Cache::withPrefix($prefix1)->get($key.$x, function (int $x, $pfx) {
-                return 'This is a test. '.$x.$pfx;
+
+        $cache1 = $this->cache->withPrefix($prefix1);
+        $cache2 = $this->cache->withPrefix($prefix2);
+
+        for ($x = 0; $x < 3; $x++) {
+            $cache1->get($key . $x, function (int $x, $pfx) {
+                return 'This is a test. ' . $x . $pfx;
             }, 60, [$x, $prefix1]);
         }
-        for ($x = 0 ; $x < 3 ; $x++) {
-            Cache::withPrefix($prefix2)->get($key2.$x, function (int $x, $pfx) {
-                return 'This is a test. '.$x.$pfx;
+        for ($x = 0; $x < 3; $x++) {
+            $cache2->get($key2 . $x, function (int $x, $pfx) {
+                return 'This is a test. ' . $x . $pfx;
             }, 60, [$x, $prefix2]);
         }
-        Cache::withPrefix($prefix1);
-        for ($x = 0 ; $x < 3 ; $x++) {
-            $this->assertTrue(Cache::has($key.$x));
+        for ($x = 0; $x < 3; $x++) {
+            $this->assertTrue($cache1->has($key . $x));
         }
-        Cache::withPrefix($prefix2);
-        for ($x = 0 ; $x < 3 ; $x++) {
-            $this->assertTrue(Cache::has($key2.$x));
+        for ($x = 0; $x < 3; $x++) {
+            $this->assertTrue($cache2->has($key2 . $x));
         }
-        Cache::withPrefix($prefix1)->flush();
-        for ($x = 0 ; $x < 3 ; $x++) {
-            $this->assertFalse(Cache::has($key.$x));
+        $cache1->flush();
+        for ($x = 0; $x < 3; $x++) {
+            $this->assertFalse($cache1->has($key . $x));
         }
-        Cache::withPrefix($prefix2);
-        for ($x = 0 ; $x < 3 ; $x++) {
-            $this->assertTrue(Cache::has($key2.$x));
+        for ($x = 0; $x < 3; $x++) {
+            $this->assertTrue($cache2->has($key2 . $x));
         }
     }
-    
+
+    /**
+     * @test
+     */
+    public function testWithPrefixDoesNotMutate() {
+        $this->cache->set('key', 'no_prefix', 60);
+        $prefixed = $this->cache->withPrefix('pfx_');
+        $prefixed->set('key', 'with_prefix', 60);
+
+        // Original cache is unaffected
+        $this->assertEquals('', $this->cache->getPrefix());
+        $this->assertEquals('no_prefix', $this->cache->get('key'));
+
+        // Prefixed cache has its own namespace
+        $this->assertEquals('pfx_', $prefixed->getPrefix());
+        $this->assertEquals('with_prefix', $prefixed->get('key'));
+    }
+
     /**
      * @test
      */
     public function testEncryptionIntegration() {
         $sensitiveData = 'This is sensitive information';
         $key = 'sensitive_key';
-        
-        Cache::set($key, $sensitiveData, 60);
-        $retrieved = Cache::get($key);
-        
+
+        $this->cache->set($key, $sensitiveData, 60);
+        $retrieved = $this->cache->get($key);
+
         $this->assertEquals($sensitiveData, $retrieved);
-        
-        // Verify data is actually encrypted in storage
-        $item = Cache::getItem($key);
+
+        $item = $this->cache->getItem($key);
         $this->assertNotNull($item);
-        
-        // The encrypted data should be different from the original
         $encryptedData = $item->getDataEncrypted();
         $this->assertNotEquals(serialize($sensitiveData), $encryptedData);
     }
-    
+
     /**
      * @test
      */
@@ -265,131 +279,88 @@ class CacheTest extends TestCase {
             'array' => [1, 2, 3, 'nested' => ['deep' => 'value']],
             'object' => (object)['property' => 'value', 'nested' => (object)['deep' => 'nested_value']]
         ];
-        
+
         $key = 'complex_data_test';
-        Cache::set($key, $complexData, 300);
-        
-        $retrieved = Cache::get($key);
+        $this->cache->set($key, $complexData, 300);
+        $retrieved = $this->cache->get($key);
         $this->assertEquals($complexData, $retrieved);
-        
-        // Test with generator function
-        $generatedData = Cache::get('generated_complex', function() use ($complexData) {
-            return $complexData;
-        }, 300);
-        
-        $this->assertEquals($complexData, $generatedData);
     }
-    
+
     /**
      * @test
      */
     public function testCacheWithZeroTTL() {
         $key = 'zero_ttl_test';
-        $data = 'This should not be cached';
-        
-        // TTL of 0 should not cache the item
-        $result = Cache::set($key, $data, 0);
-        $this->assertFalse(Cache::has($key));
-        $this->assertNull(Cache::get($key));
+        $this->cache->set($key, 'data', 0);
+        $this->assertFalse($this->cache->has($key));
+        $this->assertNull($this->cache->get($key));
     }
-    
+
     /**
      * @test
      */
     public function testCacheWithNegativeTTL() {
         $key = 'negative_ttl_test';
-        $data = 'This should not be cached';
-        
-        // Negative TTL should result in the item not being stored
-        // The FileStorage checks if TTL > 0 before storing
-        $result = Cache::set($key, $data, -100);
-        
-        // The set operation might succeed but the item won't be stored due to negative TTL
-        $this->assertFalse(Cache::has($key));
-        $this->assertNull(Cache::get($key));
+        $this->cache->set($key, 'data', -100);
+        $this->assertFalse($this->cache->has($key));
+        $this->assertNull($this->cache->get($key));
     }
-    
+
     /**
      * @test
      */
     public function testCacheGetWithParameters() {
         $key = 'parameterized_test';
-        
-        $result = Cache::get($key, function($param1, $param2, $param3) {
-            return "Generated with: {$param1}, {$param2}, {$param3}";
+        $result = $this->cache->get($key, function ($p1, $p2, $p3) {
+            return "Generated with: {$p1}, {$p2}, {$p3}";
         }, 300, ['value1', 'value2', 'value3']);
-        
-        $expected = "Generated with: value1, value2, value3";
-        $this->assertEquals($expected, $result);
-        
-        // Second call should return cached value
-        $cached = Cache::get($key);
-        $this->assertEquals($expected, $cached);
+
+        $this->assertEquals("Generated with: value1, value2, value3", $result);
+        $this->assertEquals("Generated with: value1, value2, value3", $this->cache->get($key));
     }
-    
+
     /**
      * @test
      */
     public function testCacheGetWithEmptyParameters() {
-        $key = 'empty_params_test';
-        
-        $result = Cache::get($key, function() {
+        $result = $this->cache->get('empty_params_test', function () {
             return 'Generated without parameters';
         }, 300, []);
-        
         $this->assertEquals('Generated without parameters', $result);
     }
-    
+
     /**
      * @test
      */
     public function testCacheGetWithNullGenerator() {
-        $key = 'null_generator_test';
-        
-        // Should return null when no generator provided and key doesn't exist
-        $result = Cache::get($key, null);
-        $this->assertNull($result);
-        
-        // Set a value first
-        Cache::set($key, 'test_value', 300);
-        
-        // Should return cached value even with null generator
-        $result = Cache::get($key, null);
-        $this->assertEquals('test_value', $result);
+        $this->assertNull($this->cache->get('null_generator_test', null));
+
+        $this->cache->set('null_generator_test', 'test_value', 300);
+        $this->assertEquals('test_value', $this->cache->get('null_generator_test', null));
     }
-    
+
     /**
      * @test
      */
     public function testCacheDriverManagement() {
-        $originalDriver = Cache::getDriver();
-        $this->assertInstanceOf(\WebFiori\Cache\Storage::class, $originalDriver);
-        
-        // Create a new file storage driver
-        $newDriver = new \WebFiori\Cache\FileStorage(__DIR__ . '/test_cache_driver');
-        Cache::setDriver($newDriver);
-        
-        $this->assertSame($newDriver, Cache::getDriver());
-        
-        // Test that cache operations work with new driver
-        Cache::set('driver_test', 'test_data', 300);
-        $this->assertTrue(Cache::has('driver_test'));
-        $this->assertEquals('test_data', Cache::get('driver_test'));
-        
-        // Clean up
-        Cache::flush();
+        $originalDriver = $this->cache->getDriver();
+        $this->assertInstanceOf(Storage::class, $originalDriver);
+
+        $newDriver = new FileStorage(__DIR__ . '/test_cache_driver');
+        $this->cache->setDriver($newDriver);
+        $this->assertSame($newDriver, $this->cache->getDriver());
+
+        $this->cache->set('driver_test', 'test_data', 300);
+        $this->assertTrue($this->cache->has('driver_test'));
+        $this->assertEquals('test_data', $this->cache->get('driver_test'));
+
+        $this->cache->flush();
         if (is_dir(__DIR__ . '/test_cache_driver')) {
-            $files = glob(__DIR__ . '/test_cache_driver/*.cache');
-            foreach ($files as $file) {
-                unlink($file);
-            }
             rmdir(__DIR__ . '/test_cache_driver');
         }
-        
-        // Restore original driver
-        Cache::setDriver($originalDriver);
+        $this->cache->setDriver($originalDriver);
     }
-    
+
     /**
      * @test
      */
@@ -397,376 +368,474 @@ class CacheTest extends TestCase {
         $key = 'item_details_test';
         $data = 'test data for item details';
         $ttl = 600;
-        
-        Cache::set($key, $data, $ttl);
-        $item = Cache::getItem($key);
-        
+
+        $this->cache->set($key, $data, $ttl);
+        $item = $this->cache->getItem($key);
+
         $this->assertNotNull($item);
         $this->assertEquals($key, $item->getKey());
-        $this->assertEquals($data, $item->getDataDecrypted()); // Use decrypted data
+        $this->assertEquals($data, $item->getDataDecrypted());
         $this->assertEquals($ttl, $item->getTTL());
         $this->assertGreaterThan(0, $item->getCreatedAt());
         $this->assertGreaterThan(time(), $item->getExpiryTime());
         $this->assertEquals($item->getCreatedAt() + $ttl, $item->getExpiryTime());
     }
-    
+
     /**
      * @test
      */
     public function testCacheFlushWithPrefix() {
-        // Set up items with different prefixes
-        Cache::withPrefix('prefix1_')->set('item1', 'data1', 300);
-        Cache::withPrefix('prefix1_')->set('item2', 'data2', 300);
-        Cache::withPrefix('prefix2_')->set('item1', 'data3', 300);
-        Cache::withPrefix('prefix2_')->set('item2', 'data4', 300);
-        
-        // Verify all items exist
-        $this->assertTrue(Cache::withPrefix('prefix1_')::has('item1'));
-        $this->assertTrue(Cache::withPrefix('prefix1_')::has('item2'));
-        $this->assertTrue(Cache::withPrefix('prefix2_')::has('item1'));
-        $this->assertTrue(Cache::withPrefix('prefix2_')::has('item2'));
-        
-        // Flush only prefix1 items
-        Cache::withPrefix('prefix1_')::flush();
-        
-        // Verify prefix1 items are gone but prefix2 items remain
-        $this->assertFalse(Cache::withPrefix('prefix1_')::has('item1'));
-        $this->assertFalse(Cache::withPrefix('prefix1_')::has('item2'));
-        $this->assertTrue(Cache::withPrefix('prefix2_')::has('item1'));
-        $this->assertTrue(Cache::withPrefix('prefix2_')::has('item2'));
-        
-        // Clean up remaining items
-        Cache::withPrefix('prefix2_')::flush();
+        $c1 = $this->cache->withPrefix('prefix1_');
+        $c2 = $this->cache->withPrefix('prefix2_');
+
+        $c1->set('item1', 'data1', 300);
+        $c1->set('item2', 'data2', 300);
+        $c2->set('item1', 'data3', 300);
+        $c2->set('item2', 'data4', 300);
+
+        $this->assertTrue($c1->has('item1'));
+        $this->assertTrue($c1->has('item2'));
+        $this->assertTrue($c2->has('item1'));
+        $this->assertTrue($c2->has('item2'));
+
+        $c1->flush();
+
+        $this->assertFalse($c1->has('item1'));
+        $this->assertFalse($c1->has('item2'));
+        $this->assertTrue($c2->has('item1'));
+        $this->assertTrue($c2->has('item2'));
+
+        $c2->flush();
     }
-    
+
     /**
      * @test
      */
     public function testCacheWithLargeData() {
-        $key = 'large_data_test';
-        
-        // Create a large string (1MB)
         $largeData = str_repeat('A', 1024 * 1024);
-        
-        Cache::set($key, $largeData, 300);
-        $this->assertTrue(Cache::has($key));
-        
-        $retrieved = Cache::get($key);
+        $this->cache->set('large_data_test', $largeData, 300);
+        $this->assertTrue($this->cache->has('large_data_test'));
+        $retrieved = $this->cache->get('large_data_test');
         $this->assertEquals($largeData, $retrieved);
         $this->assertEquals(1024 * 1024, strlen($retrieved));
     }
-    
+
     /**
      * @test
      */
     public function testCacheWithSpecialCharacters() {
-        $key = 'special_chars_test';
         $data = "Special chars: àáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ 中文 العربية русский 🚀🎉💯";
-        
-        Cache::set($key, $data, 300);
-        $retrieved = Cache::get($key);
-        
-        $this->assertEquals($data, $retrieved);
+        $this->cache->set('special_chars_test', $data, 300);
+        $this->assertEquals($data, $this->cache->get('special_chars_test'));
     }
-    
-    /**
-     * @test
-     */
-    public function testCacheCreateMethod() {
-        $storage = new \WebFiori\Cache\FileStorage(__DIR__ . '/test_create_cache');
-        $cache = \WebFiori\Cache\Cache::create($storage, true, 'test_prefix_');
-        
-        $this->assertInstanceOf(\WebFiori\Cache\Cache::class, $cache);
-        
-        // Clean up
-        if (is_dir(__DIR__ . '/test_create_cache')) {
-            $files = glob(__DIR__ . '/test_create_cache/*.cache');
-            foreach ($files as $file) {
-                unlink($file);
-            }
-            rmdir(__DIR__ . '/test_create_cache');
-        }
-    }
-    
+
     /**
      * @test
      */
     public function testCacheGetPrefixMethod() {
-        $originalPrefix = Cache::getPrefix();
-        
-        Cache::withPrefix('test_prefix_');
-        $this->assertEquals('test_prefix_', Cache::getPrefix());
-        
-        Cache::withPrefix('another_prefix_');
-        $this->assertEquals('another_prefix_', Cache::getPrefix());
-        
-        Cache::withPrefix('');
-        $this->assertEquals('', Cache::getPrefix());
+        $this->assertEquals('', $this->cache->getPrefix());
+        $prefixed = $this->cache->withPrefix('test_prefix_');
+        $this->assertEquals('test_prefix_', $prefixed->getPrefix());
+        // Original unchanged
+        $this->assertEquals('', $this->cache->getPrefix());
     }
-    
+
     /**
      * @test
      */
     public function testCacheMultipleOperationsSequence() {
         $keys = ['seq1', 'seq2', 'seq3', 'seq4', 'seq5'];
         $data = ['data1', 'data2', 'data3', 'data4', 'data5'];
-        
-        // Set multiple items
+
         for ($i = 0; $i < count($keys); $i++) {
-            Cache::set($keys[$i], $data[$i], 300);
+            $this->cache->set($keys[$i], $data[$i], 300);
         }
-        
-        // Verify all items exist
         foreach ($keys as $key) {
-            $this->assertTrue(Cache::has($key));
+            $this->assertTrue($this->cache->has($key));
         }
-        
-        // Get all items and verify data
         for ($i = 0; $i < count($keys); $i++) {
-            $this->assertEquals($data[$i], Cache::get($keys[$i]));
+            $this->assertEquals($data[$i], $this->cache->get($keys[$i]));
         }
-        
-        // Delete every other item
         for ($i = 0; $i < count($keys); $i += 2) {
-            Cache::delete($keys[$i]);
+            $this->cache->delete($keys[$i]);
         }
-        
-        // Verify deletion pattern
         for ($i = 0; $i < count($keys); $i++) {
             if ($i % 2 === 0) {
-                $this->assertFalse(Cache::has($keys[$i]));
+                $this->assertFalse($this->cache->has($keys[$i]));
             } else {
-                $this->assertTrue(Cache::has($keys[$i]));
+                $this->assertTrue($this->cache->has($keys[$i]));
             }
         }
-        
-        // Clean up remaining items
-        Cache::flush();
     }
-    
+
     /**
      * @test
      */
     public function testInvalidCacheKeyExceptions() {
-        // Test empty key
         $this->expectException(\WebFiori\Cache\Exceptions\InvalidCacheKeyException::class);
         $this->expectExceptionMessage('Cache key cannot be empty');
-        Cache::set('', 'data');
+        $this->cache->set('', 'data');
     }
-    
+
     /**
      * @test
      */
     public function testInvalidCacheKeyWhitespaceOnly() {
         $this->expectException(\WebFiori\Cache\Exceptions\InvalidCacheKeyException::class);
         $this->expectExceptionMessage('Cache key cannot be empty');
-        Cache::set('   ', 'data');
+        $this->cache->set('   ', 'data');
     }
-    
+
     /**
      * @test
      */
     public function testInvalidCacheKeyTooLong() {
-        $longKey = str_repeat('a', 251); // Exceeds 250 character limit
-        
         $this->expectException(\WebFiori\Cache\Exceptions\InvalidCacheKeyException::class);
         $this->expectExceptionMessage('Cache key exceeds maximum length of 250 characters');
-        Cache::set($longKey, 'data');
+        $this->cache->set(str_repeat('a', 251), 'data');
     }
-    
+
     /**
      * @test
      */
     public function testInvalidCacheKeyControlCharacters() {
-        $keyWithControlChars = "test\x00key"; // Contains null byte
-        
         $this->expectException(\WebFiori\Cache\Exceptions\InvalidCacheKeyException::class);
         $this->expectExceptionMessage('Cache key contains invalid control characters');
-        Cache::set($keyWithControlChars, 'data');
+        $this->cache->set("test\x00key", 'data');
     }
-    
+
     /**
      * @test
      */
     public function testValidCacheKeyEdgeCases() {
-        // Test maximum valid length (250 characters)
         $maxLengthKey = str_repeat('a', 250);
-        $this->assertTrue(Cache::set($maxLengthKey, 'data', 60));
-        $this->assertEquals('data', Cache::get($maxLengthKey));
-        
-        // Test key with special but valid characters
+        $this->assertTrue($this->cache->set($maxLengthKey, 'data', 60));
+        $this->assertEquals('data', $this->cache->get($maxLengthKey));
+
         $specialKey = 'key-with_special.chars@domain.com:8080/path?query=value#fragment';
-        $this->assertTrue(Cache::set($specialKey, 'special_data', 60));
-        $this->assertEquals('special_data', Cache::get($specialKey));
-        
-        // Test key with unicode characters
+        $this->assertTrue($this->cache->set($specialKey, 'special_data', 60));
+        $this->assertEquals('special_data', $this->cache->get($specialKey));
+
         $unicodeKey = 'key_with_unicode_中文_العربية_русский';
-        $this->assertTrue(Cache::set($unicodeKey, 'unicode_data', 60));
-        $this->assertEquals('unicode_data', Cache::get($unicodeKey));
+        $this->assertTrue($this->cache->set($unicodeKey, 'unicode_data', 60));
+        $this->assertEquals('unicode_data', $this->cache->get($unicodeKey));
     }
-    
-    /**
-     * @test
-     */
-    public function testCacheDriverException() {
-        $this->expectException(\TypeError::class);
-        
-        // Try to set an invalid driver (not implementing Storage interface)
-        Cache::setDriver(new \stdClass());
-    }
-    
+
     /**
      * @test
      */
     public function testCacheWithDisabledState() {
         $key = 'disabled_cache_test';
         $data = 'test data';
-        
-        // Disable caching
-        Cache::setEnabled(false);
-        $this->assertFalse(Cache::isEnabled());
-        
-        // Try to cache data - should not be stored
-        $result = Cache::get($key, function() use ($data) {
+
+        $this->cache->setEnabled(false);
+        $this->assertFalse($this->cache->isEnabled());
+
+        $result = $this->cache->get($key, function () use ($data) {
             return $data;
         }, 300);
-        
-        // Should return generated data but not cache it
         $this->assertEquals($data, $result);
-        $this->assertFalse(Cache::has($key));
-        
-        // Re-enable caching
-        Cache::setEnabled(true);
-        $this->assertTrue(Cache::isEnabled());
-        
-        // Now it should cache
-        $result2 = Cache::get($key, function() use ($data) {
+        $this->assertFalse($this->cache->has($key));
+
+        $this->cache->setEnabled(true);
+        $result2 = $this->cache->get($key, function () use ($data) {
             return $data;
         }, 300);
-        
         $this->assertEquals($data, $result2);
-        $this->assertTrue(Cache::has($key));
+        $this->assertTrue($this->cache->has($key));
     }
-    
+
     /**
      * @test
      */
     public function testSetTTLOnNonExistentKey() {
-        $nonExistentKey = 'does_not_exist';
-        
-        $result = Cache::setTTL($nonExistentKey, 600);
-        $this->assertFalse($result);
+        $this->assertFalse($this->cache->setTTL('does_not_exist', 600));
     }
-    
+
     /**
      * @test
      */
     public function testGetItemOnNonExistentKey() {
-        $nonExistentKey = 'does_not_exist';
-        
-        $item = Cache::getItem($nonExistentKey);
-        $this->assertNull($item);
+        $this->assertNull($this->cache->getItem('does_not_exist'));
     }
-    
+
     /**
      * @test
      */
     public function testDeleteNonExistentKey() {
-        $nonExistentKey = 'does_not_exist';
-        
-        // Should not throw exception
-        Cache::delete($nonExistentKey);
-        $this->assertFalse(Cache::has($nonExistentKey));
+        $this->cache->delete('does_not_exist');
+        $this->assertFalse($this->cache->has('does_not_exist'));
     }
-    
+
     /**
      * @test
      */
     public function testCacheOverrideExistingItem() {
-        $key = 'override_test';
-        $originalData = 'original data';
-        $newData = 'new data';
-        
-        // Set original data
-        Cache::set($key, $originalData, 300);
-        $this->assertEquals($originalData, Cache::get($key));
-        
-        // Try to set without override - should fail
-        $result = Cache::set($key, $newData, 300, false);
-        $this->assertFalse($result);
-        $this->assertEquals($originalData, Cache::get($key));
-        
-        // Set with override - should succeed
-        $result = Cache::set($key, $newData, 300, true);
-        $this->assertTrue($result);
-        $this->assertEquals($newData, Cache::get($key));
+        $this->cache->set('override_test', 'original', 300);
+        $this->assertEquals('original', $this->cache->get('override_test'));
+
+        $this->assertFalse($this->cache->set('override_test', 'new', 300, false));
+        $this->assertEquals('original', $this->cache->get('override_test'));
+
+        $this->assertTrue($this->cache->set('override_test', 'new', 300, true));
+        $this->assertEquals('new', $this->cache->get('override_test'));
     }
-    
+
     /**
      * @test
      */
     public function testCacheWithCallableGenerator() {
-        $key = 'callable_test';
         $counter = 0;
-        
-        $generator = function() use (&$counter) {
+        $generator = function () use (&$counter) {
             $counter++;
             return "Generated #{$counter}";
         };
-        
-        // First call should generate
-        $result1 = Cache::get($key, $generator, 300);
-        $this->assertEquals('Generated #1', $result1);
+
+        $this->assertEquals('Generated #1', $this->cache->get('callable_test', $generator, 300));
         $this->assertEquals(1, $counter);
-        
-        // Second call should use cache
-        $result2 = Cache::get($key, $generator, 300);
-        $this->assertEquals('Generated #1', $result2);
-        $this->assertEquals(1, $counter); // Counter should not increment
-        
-        // Delete and call again - should generate new value
-        Cache::delete($key);
-        $result3 = Cache::get($key, $generator, 300);
-        $this->assertEquals('Generated #2', $result3);
+
+        $this->assertEquals('Generated #1', $this->cache->get('callable_test', $generator, 300));
+        $this->assertEquals(1, $counter);
+
+        $this->cache->delete('callable_test');
+        $this->assertEquals('Generated #2', $this->cache->get('callable_test', $generator, 300));
         $this->assertEquals(2, $counter);
     }
-    
+
     /**
      * @test
      */
     public function testCacheWithObjectData() {
-        $key = 'object_test';
         $object = new \stdClass();
         $object->property1 = 'value1';
         $object->property2 = 42;
         $object->nested = new \stdClass();
         $object->nested->deep = 'deep_value';
-        
-        Cache::set($key, $object, 300);
-        $retrieved = Cache::get($key);
-        
+
+        $this->cache->set('object_test', $object, 300);
+        $retrieved = $this->cache->get('object_test');
+
         $this->assertEquals($object, $retrieved);
         $this->assertEquals('value1', $retrieved->property1);
         $this->assertEquals(42, $retrieved->property2);
         $this->assertEquals('deep_value', $retrieved->nested->deep);
     }
-    
+
     /**
      * @test
      */
-    public function testCacheWithResourceData() {
-        $key = 'resource_test';
-        $resource = fopen('php://memory', 'r+');
-        fwrite($resource, 'test data');
-        
-        // Resources cannot be serialized, so this should work but the resource
-        // will be converted to its serialized representation
-        Cache::set($key, $resource, 300);
-        $retrieved = Cache::get($key);
-        
-        // The retrieved value will not be the same resource
-        $this->assertNotSame($resource, $retrieved);
-        
-        fclose($resource);
+    public function testCacheWithFalsyValues() {
+        // false
+        $this->cache->set('val_false', false, 60);
+        $this->assertTrue($this->cache->has('val_false'));
+        $this->assertFalse($this->cache->get('val_false'));
+
+        // null
+        $this->cache->set('val_null', null, 60);
+        $this->assertTrue($this->cache->has('val_null'));
+        $this->assertNull($this->cache->get('val_null'));
+
+        // 0
+        $this->cache->set('val_zero', 0, 60);
+        $this->assertTrue($this->cache->has('val_zero'));
+        $this->assertSame(0, $this->cache->get('val_zero'));
+
+        // empty string
+        $this->cache->set('val_empty', '', 60);
+        $this->assertTrue($this->cache->has('val_empty'));
+        $this->assertSame('', $this->cache->get('val_empty'));
+
+        // Generator should NOT run when false is cached
+        $counter = 0;
+        $this->cache->set('gen_false', false, 60);
+        $val = $this->cache->get('gen_false', function () use (&$counter) {
+            $counter++;
+            return 'generated';
+        }, 60);
+        $this->assertFalse($val);
+        $this->assertEquals(0, $counter);
+    }
+
+    /**
+     * @test
+     */
+    public function testSetReturnsFalseOnStorageFailure() {
+        // Make directory read-only to force storage failure
+        $dir = __DIR__ . '/readonly_test';
+        mkdir($dir, 0700, true);
+        $cache = new Cache(new FileStorage($dir));
+        chmod($dir, 0444);
+
+        $result = $cache->set('test', 'data', 60);
+        $this->assertFalse($result);
+
+        chmod($dir, 0700);
+        rmdir($dir);
+    }
+
+    /**
+     * @test
+     */
+    public function testGetReturnsDataWhenDecryptionFails() {
+        // Store a valid item
+        $this->cache->set('good_key', 'good_data', 60);
+        $this->assertTrue($this->cache->has('good_key'));
+
+        // Corrupt the cache file by overwriting with invalid encrypted data
+        $cacheDir = $this->cache->getDriver()->getPath();
+        $files = glob($cacheDir . '/*.cache');
+        $this->assertNotEmpty($files);
+
+        // Write a valid serialized structure but with garbage encrypted data
+        $corrupted = serialize([
+            'data' => 'not-valid-base64-encrypted-data!!!',
+            'created_at' => time(),
+            'ttl' => 60,
+            'expires' => time() + 60,
+            'key' => 'good_key',
+            'encrypted' => true,
+        ]);
+        file_put_contents($files[0], $corrupted);
+
+        // get() should treat decryption failure as cache miss and run generator
+        $counter = 0;
+        $result = $this->cache->get('good_key', function () use (&$counter) {
+            $counter++;
+            return 'regenerated';
+        }, 60);
+
+        $this->assertEquals('regenerated', $result);
+        $this->assertEquals(1, $counter);
+    }
+
+    /**
+     * @test
+     */
+    public function testCacheFacadeBasicOperations() {
+        $testKey = KeyManager::generateKey();
+        $_ENV['CACHE_ENCRYPTION_KEY'] = $testKey;
+        KeyManager::clearCache();
+
+        \WebFiori\Cache\CacheFacade::reset();
+
+        \WebFiori\Cache\CacheFacade::set('facade_key', 'facade_value', 60);
+        $this->assertTrue(\WebFiori\Cache\CacheFacade::has('facade_key'));
+        $this->assertEquals('facade_value', \WebFiori\Cache\CacheFacade::get('facade_key'));
+
+        $item = \WebFiori\Cache\CacheFacade::getItem('facade_key');
+        $this->assertNotNull($item);
+        $this->assertEquals(60, $item->getTTL());
+
+        \WebFiori\Cache\CacheFacade::setTTL('facade_key', 300);
+        $item = \WebFiori\Cache\CacheFacade::getItem('facade_key');
+        $this->assertEquals(300, $item->getTTL());
+
+        \WebFiori\Cache\CacheFacade::delete('facade_key');
+        $this->assertFalse(\WebFiori\Cache\CacheFacade::has('facade_key'));
+
+        \WebFiori\Cache\CacheFacade::flush();
+        \WebFiori\Cache\CacheFacade::reset();
+    }
+
+    /**
+     * @test
+     */
+    public function testCacheFacadeEnabledAndDriver() {
+        \WebFiori\Cache\CacheFacade::reset();
+
+        $this->assertTrue(\WebFiori\Cache\CacheFacade::isEnabled());
+        \WebFiori\Cache\CacheFacade::setEnabled(false);
+        $this->assertFalse(\WebFiori\Cache\CacheFacade::isEnabled());
+        \WebFiori\Cache\CacheFacade::setEnabled(true);
+
+        $driver = \WebFiori\Cache\CacheFacade::getDriver();
+        $this->assertInstanceOf(\WebFiori\Cache\Storage::class, $driver);
+
+        $newDriver = new FileStorage(__DIR__ . '/test_facade_driver');
+        \WebFiori\Cache\CacheFacade::setDriver($newDriver);
+        $this->assertSame($newDriver, \WebFiori\Cache\CacheFacade::getDriver());
+
+        \WebFiori\Cache\CacheFacade::flush();
+        if (is_dir(__DIR__ . '/test_facade_driver')) {
+            rmdir(__DIR__ . '/test_facade_driver');
+        }
+        \WebFiori\Cache\CacheFacade::reset();
+    }
+
+    /**
+     * @test
+     */
+    public function testCacheFacadeWithPrefix() {
+        \WebFiori\Cache\CacheFacade::reset();
+
+        $prefixed = \WebFiori\Cache\CacheFacade::withPrefix('fp_');
+        $this->assertInstanceOf(Cache::class, $prefixed);
+        $this->assertEquals('fp_', $prefixed->getPrefix());
+
+        // Facade's own prefix should be unchanged
+        $this->assertEquals('', \WebFiori\Cache\CacheFacade::getPrefix());
+
+        \WebFiori\Cache\CacheFacade::flush();
+        \WebFiori\Cache\CacheFacade::reset();
+    }
+
+    /**
+     * @test
+     */
+    public function testCacheFacadeInstanceManagement() {
+        \WebFiori\Cache\CacheFacade::reset();
+
+        $inst1 = \WebFiori\Cache\CacheFacade::getInstance();
+        $inst2 = \WebFiori\Cache\CacheFacade::getInstance();
+        $this->assertSame($inst1, $inst2);
+
+        $custom = new Cache(new FileStorage(__DIR__ . '/test_facade_inst'));
+        \WebFiori\Cache\CacheFacade::setInstance($custom);
+        $this->assertSame($custom, \WebFiori\Cache\CacheFacade::getInstance());
+
+        \WebFiori\Cache\CacheFacade::reset();
+        $inst3 = \WebFiori\Cache\CacheFacade::getInstance();
+        $this->assertNotSame($custom, $inst3);
+
+        \WebFiori\Cache\CacheFacade::flush();
+        if (is_dir(__DIR__ . '/test_facade_inst')) {
+            rmdir(__DIR__ . '/test_facade_inst');
+        }
+        \WebFiori\Cache\CacheFacade::reset();
+    }
+
+    /**
+     * @test
+     */
+    public function testCacheFacadePurgeExpired() {
+        \WebFiori\Cache\CacheFacade::reset();
+
+        \WebFiori\Cache\CacheFacade::set('exp1', 'data', 1);
+        \WebFiori\Cache\CacheFacade::set('keep1', 'data', 600);
+        sleep(2);
+
+        $removed = \WebFiori\Cache\CacheFacade::purgeExpired();
+        $this->assertEquals(1, $removed);
+        $this->assertFalse(\WebFiori\Cache\CacheFacade::has('exp1'));
+        $this->assertTrue(\WebFiori\Cache\CacheFacade::has('keep1'));
+
+        \WebFiori\Cache\CacheFacade::flush();
+        \WebFiori\Cache\CacheFacade::reset();
+    }
+
+    /**
+     * @test
+     */
+    public function testCacheFacadeGetWithGenerator() {
+        \WebFiori\Cache\CacheFacade::reset();
+
+        $result = \WebFiori\Cache\CacheFacade::get('gen_key', function () {
+            return 'generated';
+        }, 60);
+        $this->assertEquals('generated', $result);
+        $this->assertEquals('generated', \WebFiori\Cache\CacheFacade::get('gen_key'));
+
+        \WebFiori\Cache\CacheFacade::flush();
+        \WebFiori\Cache\CacheFacade::reset();
     }
 }

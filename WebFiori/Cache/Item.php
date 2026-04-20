@@ -1,4 +1,5 @@
 <?php
+
 /**
  * This file is licensed under MIT License.
  *
@@ -10,9 +11,9 @@
  */
 namespace WebFiori\Cache;
 
+use Exception;
 use InvalidArgumentException;
 use WebFiori\Cache\Exceptions\CacheException;
-use Exception;
 
 /**
  * A class which represent a cache item.
@@ -20,14 +21,14 @@ use Exception;
 class Item {
     private $createdAt;
     private $data;
-    private $key;
-    private $secretKey;
-    private $timeToLive = 0;
-    private $prefix;
-    private ?SecurityConfig $securityConfig = null;
-    private bool $dataIsEncrypted = false;
     private bool $dataFromStorage = false;
-    
+    private bool $dataIsEncrypted = false;
+    private $key;
+    private $prefix;
+    private $secretKey;
+    private ?SecurityConfig $securityConfig = null;
+    private $timeToLive = 0;
+
     /**
      * Creates new instance of the class.
      *
@@ -45,17 +46,17 @@ class Item {
      */
     public function __construct(string $key = 'item', $data = '', int $ttl = 60, string $secretKey = '') {
         $this->securityConfig = new SecurityConfig();
-        
+
         $this->setKey($key);
         $this->setTTL($ttl);
         $this->setData($data);
         $this->setCreatedAt(time());
         $this->setPrefix('');
-        
+
         // Set secret after security config is initialized
         $this->setSecret($secretKey);
     }
-    
+
     /**
      * Generates a cryptographic secure key.
      *
@@ -68,7 +69,7 @@ class Item {
     public static function generateKey() : string {
         return bin2hex(random_bytes(32));
     }
-    
+
     /**
      * Returns the time at which the item was created at.
      *
@@ -79,7 +80,7 @@ class Item {
     public function getCreatedAt() : int {
         return $this->createdAt;
     }
-    
+
     /**
      * Returns the data of cache item.
      *
@@ -88,7 +89,7 @@ class Item {
     public function getData() {
         return $this->data;
     }
-    
+
     /**
      * Returns cache item data after performing decryption on it.
      *
@@ -109,12 +110,13 @@ class Item {
                 return $this->getData();
             }
         }
-        
+
         // Data is encrypted, decrypt it first then unserialize
         $decryptedData = $this->decrypt($this->getData());
+
         return unserialize($decryptedData);
     }
-    
+
     /**
      * Returns cache data after performing encryption on it.
      *
@@ -123,14 +125,14 @@ class Item {
      */
     public function getDataEncrypted() : string {
         $serializedData = serialize($this->getData());
-        
+
         if (!$this->securityConfig || !$this->securityConfig->isEncryptionEnabled()) {
             return $serializedData;
         }
-        
+
         return $this->encrypt($serializedData);
     }
-    
+
     /**
      * Returns the time at which cache item will expire as Unix timestamp.
      *
@@ -142,7 +144,7 @@ class Item {
     public function getExpiryTime() : int {
         return $this->getCreatedAt() + $this->getTTL();
     }
-    
+
     /**
      * Gets the key of the item.
      *
@@ -153,7 +155,16 @@ class Item {
     public function getKey() : string {
         return $this->key;
     }
-    
+
+    /**
+     * Returns the prefix that will be appended to the key.
+     * 
+     * @return string If no prefix is set, empty string is returned.
+     */
+    public function getPrefix() : string {
+        return $this->prefix;
+    }
+
     /**
      * Returns the value of the key which is used in encrypting cache data.
      *
@@ -163,7 +174,16 @@ class Item {
     public function getSecret() : string {
         return $this->secretKey;
     }
-    
+
+    /**
+     * Gets the security configuration.
+     * 
+     * @return SecurityConfig
+     */
+    public function getSecurityConfig(): SecurityConfig {
+        return $this->securityConfig;
+    }
+
     /**
      * Returns the duration at which the item will be kept in cache in seconds.
      *
@@ -172,7 +192,16 @@ class Item {
     public function getTTL() : int {
         return $this->timeToLive;
     }
-    
+
+    /**
+     * Checks if the current data is encrypted.
+     * 
+     * @return bool True if data is encrypted
+     */
+    public function isDataEncrypted(): bool {
+        return $this->dataIsEncrypted;
+    }
+
     /**
      * Sets the time at which the item was created at.
      *
@@ -184,7 +213,7 @@ class Item {
             $this->createdAt = $time;
         }
     }
-    
+
     /**
      * Sets the data of the item.
      *
@@ -195,7 +224,25 @@ class Item {
     public function setData($data) {
         $this->data = $data;
     }
-    
+
+    /**
+     * Sets whether the data came from storage.
+     * 
+     * @param bool $fromStorage True if data came from storage
+     */
+    public function setDataFromStorage(bool $fromStorage): void {
+        $this->dataFromStorage = $fromStorage;
+    }
+
+    /**
+     * Sets whether the current data is encrypted.
+     * 
+     * @param bool $encrypted True if data is encrypted
+     */
+    public function setDataIsEncrypted(bool $encrypted): void {
+        $this->dataIsEncrypted = $encrypted;
+    }
+
     /**
      * Sets the key of the item.
      *
@@ -206,16 +253,7 @@ class Item {
     public function setKey(string $key) {
         $this->key = $key;
     }
-    
-    /**
-     * Returns the prefix that will be appended to the key.
-     * 
-     * @return string If no prefix is set, empty string is returned.
-     */
-    public function getPrefix() : string {
-        return $this->prefix;
-    }
-    
+
     /**
      * Sets the prefix that will be appended to the key.
      * 
@@ -224,7 +262,7 @@ class Item {
     public function setPrefix(string $prefix) {
         $this->prefix = trim($prefix.'');
     }
-    
+
     /**
      * Sets the value of the key which is used in encrypting cache data.
      *
@@ -240,7 +278,16 @@ class Item {
         }
         $this->secretKey = $secret;
     }
-    
+
+    /**
+     * Sets the security configuration.
+     * 
+     * @param SecurityConfig $config
+     */
+    public function setSecurityConfig(SecurityConfig $config): void {
+        $this->securityConfig = $config;
+    }
+
     /**
      * Sets the duration at which the item will be kept in cache in seconds.
      *
@@ -251,62 +298,7 @@ class Item {
             $this->timeToLive = $ttl;
         }
     }
-    
-    /**
-     * Sets whether the current data is encrypted.
-     * 
-     * @param bool $encrypted True if data is encrypted
-     */
-    public function setDataIsEncrypted(bool $encrypted): void {
-        $this->dataIsEncrypted = $encrypted;
-    }
-    
-    /**
-     * Sets whether the data came from storage.
-     * 
-     * @param bool $fromStorage True if data came from storage
-     */
-    public function setDataFromStorage(bool $fromStorage): void {
-        $this->dataFromStorage = $fromStorage;
-    }
-    
-    /**
-     * Checks if the current data is encrypted.
-     * 
-     * @return bool True if data is encrypted
-     */
-    public function isDataEncrypted(): bool {
-        return $this->dataIsEncrypted;
-    }
-    
-    /**
-     * Gets the security configuration.
-     * 
-     * @return SecurityConfig
-     */
-    public function getSecurityConfig(): SecurityConfig {
-        return $this->securityConfig;
-    }
-    
-    /**
-     * Sets the security configuration.
-     * 
-     * @param SecurityConfig $config
-     */
-    public function setSecurityConfig(SecurityConfig $config): void {
-        $this->securityConfig = $config;
-    }
-    
-    /**
-     * Validates if an encryption key is properly formatted.
-     * 
-     * @param string $key The key to validate
-     * @return bool True if valid, false otherwise
-     */
-    private function isValidEncryptionKey(string $key): bool {
-        return strlen($key) === 64 && ctype_xdigit($key);
-    }
-    
+
     /**
      * Decrypts encrypted data.
      * 
@@ -316,35 +308,36 @@ class Item {
      */
     private function decrypt($data): string {
         $encKey = $this->getEffectiveEncryptionKey();
-        
+
         try {
             $decodedData = base64_decode($data, true);
+
             if ($decodedData === false) {
                 throw new CacheException('Invalid base64 encoded data');
             }
-            
+
             $algorithm = $this->securityConfig ? $this->securityConfig->getEncryptionAlgorithm() : 'aes-256-cbc';
             $ivLength = openssl_cipher_iv_length($algorithm);
-            
+
             if (strlen($decodedData) < $ivLength) {
                 throw new CacheException('Invalid encrypted data format');
             }
-            
+
             $iv = substr($decodedData, 0, $ivLength);
             $encryptedData = substr($decodedData, $ivLength);
-            
+
             $decrypted = openssl_decrypt($encryptedData, $algorithm, $encKey, OPENSSL_RAW_DATA, $iv);
-            
+
             if ($decrypted === false) {
                 throw new CacheException('Decryption failed');
             }
-            
+
             return $decrypted;
         } catch (Exception $e) {
-            throw new CacheException('Decryption error: ' . $e->getMessage());
+            throw new CacheException('Decryption error: '.$e->getMessage());
         }
     }
-    
+
     /**
      * Encrypts data.
      * 
@@ -354,22 +347,22 @@ class Item {
      */
     private function encrypt($data): string {
         $key = $this->getEffectiveEncryptionKey();
-        
+
         try {
             $algorithm = $this->securityConfig ? $this->securityConfig->getEncryptionAlgorithm() : 'aes-256-cbc';
             $iv = random_bytes(openssl_cipher_iv_length($algorithm));
             $encryptedData = openssl_encrypt($data, $algorithm, $key, OPENSSL_RAW_DATA, $iv);
-            
+
             if ($encryptedData === false) {
                 throw new CacheException('Encryption failed');
             }
-            
-            return base64_encode($iv . $encryptedData);
+
+            return base64_encode($iv.$encryptedData);
         } catch (Exception $e) {
-            throw new CacheException('Encryption error: ' . $e->getMessage());
+            throw new CacheException('Encryption error: '.$e->getMessage());
         }
     }
-    
+
     /**
      * Gets the effective encryption key to use.
      * 
@@ -381,13 +374,24 @@ class Item {
         if (!empty($this->secretKey) && $this->isValidEncryptionKey($this->secretKey)) {
             return hex2bin($this->secretKey);
         }
-        
+
         // Fall back to KeyManager
         try {
             $encKey = KeyManager::getEncryptionKey();
+
             return hex2bin($encKey);
         } catch (Exception $e) {
-            throw new CacheException('No valid encryption key available: ' . $e->getMessage());
+            throw new CacheException('No valid encryption key available: '.$e->getMessage());
         }
+    }
+
+    /**
+     * Validates if an encryption key is properly formatted.
+     * 
+     * @param string $key The key to validate
+     * @return bool True if valid, false otherwise
+     */
+    private function isValidEncryptionKey(string $key): bool {
+        return strlen($key) === 64 && ctype_xdigit($key);
     }
 }

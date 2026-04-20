@@ -1,6 +1,6 @@
 # Factory and Dependency Injection
 
-Demonstrates using `Cache::create()` to instantiate a `Cache` object with a specific storage driver, enabled state, and prefix. This is useful for dependency injection in modern applications.
+Demonstrates creating a `Cache` instance directly with a specific storage driver, enabled state, and prefix via the constructor. This is the recommended approach for dependency injection in modern applications.
 
 ## Run
 
@@ -12,7 +12,7 @@ php index.php
 
 ```
 Instance type: WebFiori\Cache\Cache
-Stored 'setting': dark_mode
 Prefix: myapp_
+Stored 'setting': dark_mode
 Cleaned up.
 ```

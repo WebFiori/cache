@@ -446,4 +446,114 @@ class FileStorageTest extends TestCase {
         $files = glob($this->testDir . '/' . md5($key) . '.cache');
         $this->assertCount(1, $files);
     }
+
+    /**
+     * @test
+     */
+    public function testPurgeExpiredRemovesCorruptedFiles() {
+        $storage = new FileStorage($this->testDir);
+
+        // Store a valid item
+        $item = new Item('valid', 'data', 600, KeyManager::getEncryptionKey());
+        $storage->store($item);
+
+        // Create a corrupted cache file (invalid serialized content)
+        if (!is_dir($this->testDir)) {
+            mkdir($this->testDir, 0700, true);
+        }
+        file_put_contents($this->testDir . '/corrupted.cache', 'not-serializable-garbage');
+
+        // Create an expired cache file with valid structure
+        $expired = serialize([
+            'data' => 'old',
+            'created_at' => time() - 100,
+            'ttl' => 1,
+            'expires' => time() - 99,
+            'key' => 'old_key',
+            'encrypted' => false,
+        ]);
+        file_put_contents($this->testDir . '/expired.cache', $expired);
+
+        // Should have 3 files
+        $this->assertCount(3, glob($this->testDir . '/*.cache'));
+
+        $removed = $storage->purgeExpired();
+
+        // Corrupted + expired = 2 removed, valid stays
+        $this->assertEquals(2, $removed);
+        $files = glob($this->testDir . '/*.cache');
+        $this->assertCount(1, $files);
+        $this->assertTrue($storage->has('valid', ''));
+    }
+
+    /**
+     * @test
+     */
+    public function testPurgeExpiredOnEmptyDirectory() {
+        $storage = new FileStorage($this->testDir);
+
+        // No files exist yet, directory may not even exist
+        $removed = $storage->purgeExpired();
+        $this->assertEquals(0, $removed);
+    }
+
+    /**
+     * @test
+     */
+    public function testReadReturnsNullOnDecryptionFailure() {
+        $storage = new FileStorage($this->testDir);
+
+        // Write a cache file with garbage encrypted data but valid structure
+        if (!is_dir($this->testDir)) {
+            mkdir($this->testDir, 0700, true);
+        }
+
+        $key = 'bad_encrypt';
+        $filePath = $this->testDir . '/' . md5($key) . '.cache';
+        $data = serialize([
+            'data' => 'this-is-not-valid-encrypted-data',
+            'created_at' => time(),
+            'ttl' => 600,
+            'expires' => time() + 600,
+            'key' => $key,
+            'encrypted' => true,
+        ]);
+        file_put_contents($filePath, $data);
+
+        // read() should return null and delete the corrupted file
+        $result = $storage->read($key, '');
+        $this->assertNull($result);
+
+        // The corrupted file should have been deleted
+        $this->assertFalse(file_exists($filePath));
+    }
+
+    /**
+     * @test
+     */
+    public function testReadItemWithMissingEncryptedField() {
+        $storage = new FileStorage($this->testDir);
+
+        // Write a cache file without the 'encrypted' field (backward compat)
+        if (!is_dir($this->testDir)) {
+            mkdir($this->testDir, 0700, true);
+        }
+
+        $key = 'legacy_item';
+        $filePath = $this->testDir . '/' . md5($key) . '.cache';
+        $data = serialize([
+            'data' => serialize('legacy_data'),
+            'created_at' => time(),
+            'ttl' => 600,
+            'expires' => time() + 600,
+            'key' => $key,
+            // no 'encrypted' field
+        ]);
+        file_put_contents($filePath, $data);
+
+        // readItem should handle missing 'encrypted' field (defaults to true)
+        $item = $storage->readItem($key, '');
+        $this->assertNotNull($item);
+        $this->assertTrue($item->isDataEncrypted());
+    }
 }

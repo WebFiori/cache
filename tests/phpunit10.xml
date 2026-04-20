@@ -15,10 +15,10 @@
   </testsuites>
   <source>
     <include>
-      <file>../WebFiori/Cache/Cache.php</file>
-      <file>../WebFiori/Cache/Item.php</file>
-      <file>../WebFiori/Cache/Storage.php</file>
-      <file>../WebFiori/Cache/FileStorage.php</file>
+      <directory>../WebFiori/Cache</directory>
     </include>
+    <exclude>
+      <file>../WebFiori/Cache/Storage.php</file>
+    </exclude>
   </source>
 </phpunit>
