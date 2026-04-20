@@ -1,5 +1,23 @@
 # Changelog
 
+## [3.0.0](https://github.com/WebFiori/cache/compare/v2.0.0...v3.0.0) (2026-04-20)
+
+
+### Features
+
+* Added `purgeExpired` ([4bd27bf](https://github.com/WebFiori/cache/commit/4bd27bf3bb2e5ba40fe27a1edfd75efb2ce19c44))
+
+
+### Bug Fixes
+
+* Show Errors Properly ([768d382](https://github.com/WebFiori/cache/commit/768d3828aebc3c36dd3588187dc49211e8dc15d4))
+
+
+### Miscellaneous Chores
+
+* Update .gitattributes ([58efdfb](https://github.com/WebFiori/cache/commit/58efdfb7e8dc24a74f6d6da4c369d1c75f68c77a))
+* Updated License Headers ([84e2959](https://github.com/WebFiori/cache/commit/84e29594e959540f19a30b6784876939cf8aa67d))
+
 ## [2.0.0](https://github.com/WebFiori/cache/compare/v1.1.0...v2.0.0) (2025-08-25)
 
 
