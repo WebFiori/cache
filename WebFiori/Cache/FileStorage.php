@@ -181,18 +181,12 @@ class FileStorage implements Storage {
             return null;
         }
 
-        // Use KeyManager for encryption key if not provided, but handle gracefully if not available
-        $secretKey = '';
-        $encryptionEnabled = true;
-        try {
-            $secretKey = KeyManager::getEncryptionKey();
-        } catch (CacheException $e) {
-            // If no key available, assume encryption is disabled
-            $encryptionEnabled = false;
-        }
+        // Use KeyManager for encryption key
+        $secretKey = KeyManager::getEncryptionKey();
+        $encryptionEnabled = $secretKey !== null;
 
         // Create item with the stored encrypted/serialized data
-        $item = new Item($key, $this->data['data'], $this->data['ttl'], $secretKey);
+        $item = new Item($key, $this->data['data'], $this->data['ttl'], $secretKey ?? '');
         $item->setCreatedAt($this->data['created_at']);
         $item->setPrefix($prefix ?? '');
 

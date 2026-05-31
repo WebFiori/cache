@@ -11,7 +11,6 @@
  */
 namespace WebFiori\Cache;
 
-use WebFiori\Cache\Exceptions\CacheException;
 use WebFiori\Cache\Exceptions\InvalidCacheKeyException;
 
 /**
@@ -39,10 +38,9 @@ class KeyManager {
     /**
      * Gets the encryption key for cache operations.
      * 
-     * @return string A valid 64-character hexadecimal encryption key
-     * @throws CacheException If no valid encryption key is available
+     * @return string|null A valid 64-character hexadecimal encryption key, or null if not available
      */
-    public static function getEncryptionKey(): string {
+    public static function getEncryptionKey(): ?string {
         if (self::$key === null) {
             self::$key = self::loadKey();
         }
@@ -76,17 +74,21 @@ class KeyManager {
     /**
      * Loads encryption key from environment variables only.
      * 
-     * @return string A valid encryption key
-     * @throws CacheException If no valid key can be loaded
+     * @return string|null A valid encryption key or null if not available
      */
-    private static function loadKey(): string {
-        // Load from environment variable only
-        $key = $_ENV['CACHE_ENCRYPTION_KEY'] ?? getenv('CACHE_ENCRYPTION_KEY');
+    private static function loadKey(): ?string {
+        // Load from environment variable
+        $key = $_ENV['CACHE_KEY'] ?? getenv('CACHE_KEY');
+
+        if (!$key) {
+            // Fallback to legacy env var for backward compatibility
+            $key = $_ENV['CACHE_ENCRYPTION_KEY'] ?? getenv('CACHE_ENCRYPTION_KEY');
+        }
 
         if ($key && self::isValidKey($key)) {
             return $key;
         }
 
-        throw new CacheException('No valid encryption key found. Please set CACHE_ENCRYPTION_KEY environment variable with a 64-character hexadecimal key.');
+        return null;
     }
 }
