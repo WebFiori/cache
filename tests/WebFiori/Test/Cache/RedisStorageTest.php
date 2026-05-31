@@ -23,8 +23,12 @@ class RedisStorageTest extends TestCase {
 
         self::$redis = new \Redis();
 
-        if (!@self::$redis->connect('127.0.0.1', 6379, 2.0)) {
-            self::markTestSkipped('Cannot connect to Redis at 127.0.0.1:6379.');
+        try {
+            if (!self::$redis->connect('127.0.0.1', 6379, 2.0)) {
+                self::markTestSkipped('Cannot connect to Redis at 127.0.0.1:6379.');
+            }
+        } catch (\RedisException $e) {
+            self::markTestSkipped('Cannot connect to Redis at 127.0.0.1:6379: '.$e->getMessage());
         }
     }
 
