@@ -13,14 +13,15 @@ concurrency:
 jobs:
   test:
     name: Run Tests
-    uses: WebFiori/workflows/.github/workflows/test-php.yaml@v1.2.1
+    uses: WebFiori/workflows/.github/workflows/test-php.yaml@v1.2.3
     with:
       php-version: '8.1'
+      enable-redis: true
 
   code-coverage:
     name: Coverage
     needs: test
-    uses: WebFiori/workflows/.github/workflows/coverage-codecov.yaml@v1.2.1
+    uses: WebFiori/workflows/.github/workflows/coverage-codecov.yaml@v1.2.3
     with:
       php-version: '8.1'
       coverage-file: 'php-8.1-coverage.xml'
