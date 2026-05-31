@@ -20,7 +20,7 @@ class SecurityTest extends TestCase {
 
     protected function setUp(): void {
         $testKey = KeyManager::generateKey();
-        $_ENV['CACHE_ENCRYPTION_KEY'] = $testKey;
+        $_ENV['CACHE_KEY'] = $testKey;
         KeyManager::clearCache();
 
         $this->cache = new Cache(new FileStorage(__DIR__ . '/test_security_cache'));
@@ -85,21 +85,19 @@ class SecurityTest extends TestCase {
      */
     public function testKeyManagerRequiresEnvironmentVariable() {
         // Store current environment variable
-        $originalKey = $_ENV['CACHE_ENCRYPTION_KEY'] ?? null;
+        $originalKey = $_ENV['CACHE_KEY'] ?? null;
         
         try {
             // Clear any existing keys and environment variables
             KeyManager::clearCache();
-            unset($_ENV['CACHE_ENCRYPTION_KEY']);
+            unset($_ENV['CACHE_KEY']);
             
-            $this->expectException(CacheException::class);
-            $this->expectExceptionMessage('No valid encryption key found. Please set CACHE_ENCRYPTION_KEY environment variable');
-            
-            KeyManager::getEncryptionKey();
+            $result = KeyManager::getEncryptionKey();
+            $this->assertNull($result);
         } finally {
             // Restore environment variable
             if ($originalKey !== null) {
-                $_ENV['CACHE_ENCRYPTION_KEY'] = $originalKey;
+                $_ENV['CACHE_KEY'] = $originalKey;
                 KeyManager::clearCache(); // Force reload
             }
         }
@@ -201,15 +199,15 @@ class SecurityTest extends TestCase {
      */
     public function testItemFailsWithoutValidKeyWhenEncryptionEnabled() {
         // Store current environment variable
-        $originalKey = $_ENV['CACHE_ENCRYPTION_KEY'] ?? null;
+        $originalKey = $_ENV['CACHE_KEY'] ?? null;
         
         try {
             // Clear any existing keys and environment variables
             KeyManager::clearCache();
-            unset($_ENV['CACHE_ENCRYPTION_KEY']);
+            unset($_ENV['CACHE_KEY']);
             
             $this->expectException(CacheException::class);
-            $this->expectExceptionMessage('No valid encryption key available');
+            $this->expectExceptionMessage('No valid encryption key available. Set CACHE_KEY environment variable');
             
             $item = new Item('test', 'data', 60, '');
             // This should fail because no key is available and encryption is enabled
@@ -217,7 +215,7 @@ class SecurityTest extends TestCase {
         } finally {
             // Restore environment variable
             if ($originalKey !== null) {
-                $_ENV['CACHE_ENCRYPTION_KEY'] = $originalKey;
+                $_ENV['CACHE_KEY'] = $originalKey;
                 KeyManager::clearCache(); // Force reload
             }
         }
@@ -228,7 +226,7 @@ class SecurityTest extends TestCase {
      */
     public function testCacheUsesKeyManager() {
         $validKey = KeyManager::generateKey();
-        $_ENV['CACHE_ENCRYPTION_KEY'] = $validKey;
+        $_ENV['CACHE_KEY'] = $validKey;
         KeyManager::clearCache(); // Force reload from environment
         
         $testData = 'Test cache data';
@@ -299,7 +297,7 @@ class SecurityTest extends TestCase {
      */
     public function testEncryptionDecryptionRoundTrip() {
         $validKey = KeyManager::generateKey();
-        $_ENV['CACHE_ENCRYPTION_KEY'] = $validKey;
+        $_ENV['CACHE_KEY'] = $validKey;
         KeyManager::clearCache(); // Force reload from environment
         
         $complexData = [
@@ -320,7 +318,7 @@ class SecurityTest extends TestCase {
      */
     public function testKeyManagerEnvironmentVariable() {
         $validKey = KeyManager::generateKey();
-        $_ENV['CACHE_ENCRYPTION_KEY'] = $validKey;
+        $_ENV['CACHE_KEY'] = $validKey;
         
         KeyManager::clearCache();
         $retrievedKey = KeyManager::getEncryptionKey();
@@ -328,7 +326,7 @@ class SecurityTest extends TestCase {
         $this->assertEquals($validKey, $retrievedKey);
         
         // Clean up
-        unset($_ENV['CACHE_ENCRYPTION_KEY']);
+        unset($_ENV['CACHE_KEY']);
     }
     
     /**
@@ -731,7 +729,7 @@ class SecurityTest extends TestCase {
         KeyManager::clearCache();
         
         // After clearing cache, it should reload from environment
-        $envKey = $_ENV['CACHE_ENCRYPTION_KEY'];
+        $envKey = $_ENV['CACHE_KEY'];
         $this->assertEquals($envKey, KeyManager::getEncryptionKey());
     }
     
@@ -760,8 +758,8 @@ class SecurityTest extends TestCase {
      */
     public function testCacheSetWithoutEncryptionKey() {
         // Remove encryption key so storeItem falls back to unencrypted storage
-        $originalKey = $_ENV['CACHE_ENCRYPTION_KEY'] ?? null;
-        unset($_ENV['CACHE_ENCRYPTION_KEY']);
+        $originalKey = $_ENV['CACHE_KEY'] ?? null;
+        unset($_ENV['CACHE_KEY']);
         KeyManager::clearCache();
 
         try {
@@ -778,7 +776,7 @@ class SecurityTest extends TestCase {
             }
         } finally {
             if ($originalKey !== null) {
-                $_ENV['CACHE_ENCRYPTION_KEY'] = $originalKey;
+                $_ENV['CACHE_KEY'] = $originalKey;
                 KeyManager::clearCache();
             }
         }
@@ -788,8 +786,8 @@ class SecurityTest extends TestCase {
      * @test
      */
     public function testCacheGetGeneratorWithoutEncryptionKey() {
-        $originalKey = $_ENV['CACHE_ENCRYPTION_KEY'] ?? null;
-        unset($_ENV['CACHE_ENCRYPTION_KEY']);
+        $originalKey = $_ENV['CACHE_KEY'] ?? null;
+        unset($_ENV['CACHE_KEY']);
         KeyManager::clearCache();
 
         try {
@@ -810,7 +808,7 @@ class SecurityTest extends TestCase {
             }
         } finally {
             if ($originalKey !== null) {
-                $_ENV['CACHE_ENCRYPTION_KEY'] = $originalKey;
+                $_ENV['CACHE_KEY'] = $originalKey;
                 KeyManager::clearCache();
             }
         }
