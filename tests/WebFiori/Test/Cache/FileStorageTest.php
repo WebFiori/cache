@@ -18,7 +18,7 @@ class FileStorageTest extends TestCase {
     protected function setUp(): void {
         // Set up a test encryption key for consistent testing
         $testKey = KeyManager::generateKey();
-        $_ENV['CACHE_ENCRYPTION_KEY'] = $testKey;
+        $_ENV['CACHE_KEY'] = $testKey;
         KeyManager::clearCache();
         
         $this->testDir = __DIR__ . '/test_file_storage_' . uniqid();
@@ -37,7 +37,7 @@ class FileStorageTest extends TestCase {
         }
         
         KeyManager::clearCache();
-        unset($_ENV['CACHE_ENCRYPTION_KEY']);
+        unset($_ENV['CACHE_KEY']);
     }
     
     /**
@@ -397,8 +397,8 @@ class FileStorageTest extends TestCase {
      */
     public function testStorageWithoutEncryption() {
         // Clear encryption key to test without encryption
-        $originalKey = $_ENV['CACHE_ENCRYPTION_KEY'] ?? null;
-        unset($_ENV['CACHE_ENCRYPTION_KEY']);
+        $originalKey = $_ENV['CACHE_KEY'] ?? null;
+        unset($_ENV['CACHE_KEY']);
         KeyManager::clearCache();
         
         try {
@@ -419,7 +419,7 @@ class FileStorageTest extends TestCase {
         } finally {
             // Restore original key
             if ($originalKey !== null) {
-                $_ENV['CACHE_ENCRYPTION_KEY'] = $originalKey;
+                $_ENV['CACHE_KEY'] = $originalKey;
                 KeyManager::clearCache();
             }
         }
