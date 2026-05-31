@@ -48,3 +48,4 @@ php examples/basic/01-set-and-get/index.php
 | 09 | [File Permissions](advanced/09-file-permissions/) | Default and custom file/directory permissions |
 | 10 | [Error Handling](advanced/10-error-handling/) | Exception types and when they are thrown |
 | 11 | [Factory and DI](advanced/11-factory-and-di/) | Create cache instances for dependency injection |
+| 12 | [Redis Storage](advanced/12-redis-storage/) | Redis backend driver |

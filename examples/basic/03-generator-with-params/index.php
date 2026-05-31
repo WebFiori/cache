@@ -6,7 +6,7 @@ use WebFiori\Cache\Cache;
 use WebFiori\Cache\FileStorage;
 use WebFiori\Cache\KeyManager;
 
-$_ENV['CACHE_ENCRYPTION_KEY'] = KeyManager::generateKey();
+$_ENV['CACHE_KEY'] = KeyManager::generateKey();
 
 $cache = new Cache(new FileStorage(__DIR__.'/cache'));
 

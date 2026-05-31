@@ -5,7 +5,7 @@ require_once __DIR__.'/../../../vendor/autoload.php';
 use WebFiori\Cache\Item;
 use WebFiori\Cache\KeyManager;
 
-$_ENV['CACHE_ENCRYPTION_KEY'] = KeyManager::generateKey();
+$_ENV['CACHE_KEY'] = KeyManager::generateKey();
 
 $secret = KeyManager::getEncryptionKey();
 $original = 'Sensitive payment info: card ending 1234';
