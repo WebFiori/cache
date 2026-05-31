@@ -1,5 +1,32 @@
 # Changelog
 
+## [3.0.1](https://github.com/WebFiori/cache/compare/v3.0.0...v3.0.1) (2026-05-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* KeyManager::getEncryptionKey() return type changed from string to ?string. Code catching CacheException from this method should check for null instead.
+
+### Features
+
+* add RedisStorage driver ([f86a656](https://github.com/WebFiori/cache/commit/f86a656f8a171381e2706e94ad50d322ee131dbf)), closes [#15](https://github.com/WebFiori/cache/issues/15)
+
+
+### Bug Fixes
+
+* catch RedisException in test setup to skip gracefully ([0e465f7](https://github.com/WebFiori/cache/commit/0e465f710d1ce28819ef9d1c9b209745f7c1b6b0))
+
+
+### Miscellaneous Chores
+
+* Updated Version ([1cb45e6](https://github.com/WebFiori/cache/commit/1cb45e692632e564f7132dd808b388fd63b36649))
+* Updated Workflows ([bf75ba6](https://github.com/WebFiori/cache/commit/bf75ba6e40aeaadd0b5d054564ebdb7f8beeda8d))
+
+
+### Code Refactoring
+
+* simplify encryption key handling ([24c19a8](https://github.com/WebFiori/cache/commit/24c19a8c21576923197abdd16e8aa356234ee7bb))
+
 ## [3.0.0](https://github.com/WebFiori/cache/compare/v2.0.0...v3.0.0) (2026-04-20)
 
 
