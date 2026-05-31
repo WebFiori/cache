@@ -3,13 +3,12 @@
 require_once __DIR__.'/../../../vendor/autoload.php';
 
 use WebFiori\Cache\Cache;
-use WebFiori\Cache\Exceptions\CacheException;
 use WebFiori\Cache\Exceptions\CacheStorageException;
 use WebFiori\Cache\Exceptions\InvalidCacheKeyException;
 use WebFiori\Cache\FileStorage;
 use WebFiori\Cache\KeyManager;
 
-$_ENV['CACHE_ENCRYPTION_KEY'] = KeyManager::generateKey();
+$_ENV['CACHE_KEY'] = KeyManager::generateKey();
 
 $cache = new Cache(new FileStorage(__DIR__.'/cache'));
 
@@ -57,15 +56,12 @@ try {
     unlink($tempFile);
 }
 
-// 6. Missing encryption key when encryption is enabled
+// 6. Missing encryption key returns null (encryption disabled gracefully)
 echo "6. Missing encryption key:\n";
 KeyManager::clearCache();
-unset($_ENV['CACHE_ENCRYPTION_KEY']);
-try {
-    KeyManager::getEncryptionKey();
-} catch (CacheException $e) {
-    echo "   ".$e->getMessage()."\n";
-}
+unset($_ENV['CACHE_KEY']);
+$key = KeyManager::getEncryptionKey();
+echo "   Key is ".($key === null ? 'null — encryption disabled' : $key)."\n";
 
 $cache->flush();
 

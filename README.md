@@ -24,7 +24,7 @@ A simple, secure, and highly customizable caching engine for PHP. This library p
 - **Static facade** (`CacheFacade`) for quick usage without DI
 - **Time-based caching** with configurable TTL (Time-to-Live)
 - **Built-in encryption** for sensitive data protection
-- **Multiple storage backends** (File-based included, extensible via `Storage` interface)
+- **Multiple storage backends** (File-based and Redis included, extensible via `Storage` interface)
 - **Key prefixing** for namespace isolation (`withPrefix()` returns a new instance — no mutation)
 - **Expired item cleanup** via `purgeExpired()`
 - **Comprehensive error handling** with custom exceptions
@@ -57,7 +57,7 @@ use WebFiori\Cache\FileStorage;
 use WebFiori\Cache\KeyManager;
 
 // Set up encryption key (recommended for production)
-$_ENV['CACHE_ENCRYPTION_KEY'] = KeyManager::generateKey();
+$_ENV['CACHE_KEY'] = KeyManager::generateKey();
 
 // Create a cache instance
 $cache = new Cache(new FileStorage('/path/to/cache'));
@@ -148,11 +148,11 @@ CacheFacade::withPrefix('users_')->set('count', 100, 60);
 
 ### Security & Encryption
 
-All cached data is encrypted by default using AES-256-CBC. Configure via environment variables or programmatically:
+Cached data is encrypted using AES-256-CBC when an encryption key is available. If no key is set, data is stored unencrypted. Configure via environment variables or programmatically:
 
 ```bash
 # 64-character hexadecimal encryption key (required for encryption)
-CACHE_ENCRYPTION_KEY=your64characterhexadecimalencryptionkeyhere1234567890abcdef
+CACHE_KEY=your64characterhexadecimalencryptionkeyhere1234567890abcdef
 
 # Optional settings
 CACHE_ENCRYPTION_ENABLED=true
@@ -171,9 +171,31 @@ KeyManager::setEncryptionKey($key);
 
 > See [Encryption Key Management](examples/advanced/03-encryption-key-management/), [Security Config](examples/advanced/04-security-config/), and [Encrypt/Decrypt Round-Trip](examples/advanced/06-encrypt-decrypt-roundtrip/).
 
+### Redis Storage
+
+A built-in Redis backend is available via `RedisStorage`. It requires the `ext-redis` PHP extension and a connected `\Redis` instance:
+
+```php
+use WebFiori\Cache\Cache;
+use WebFiori\Cache\RedisStorage;
+
+$redis = new Redis();
+$redis->connect('127.0.0.1', 6379);
+
+$storage = new RedisStorage($redis, 'wf_cache:');
+$cache = new Cache($storage);
+
+$cache->set('key', 'value', 3600);
+echo $cache->get('key'); // value
+```
+
+Redis handles TTL natively, so expired items are removed automatically — no need for `purgeExpired()`.
+
+> See [Redis Storage](examples/advanced/12-redis-storage/) for a full example.
+
 ### Custom Storage Drivers
 
-Implement the `Storage` interface to create custom backends (e.g., Redis, Memcached, database):
+Implement the `Storage` interface to create custom backends (e.g., Memcached, database):
 
 ```php
 use WebFiori\Cache\Storage;
@@ -320,6 +342,7 @@ The [examples/](examples/) directory contains 23 self-contained, runnable sample
 | 09 | [File Permissions](examples/advanced/09-file-permissions/) | Default and custom permissions |
 | 10 | [Error Handling](examples/advanced/10-error-handling/) | All exception types |
 | 11 | [Factory and DI](examples/advanced/11-factory-and-di/) | Constructor-based DI |
+| 12 | [Redis Storage](examples/advanced/12-redis-storage/) | Redis backend driver |
 
 Run any example:
 

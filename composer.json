@@ -18,6 +18,9 @@
         "friendsofphp/php-cs-fixer": "^3.0",
         "phpunit/phpunit": "^10.0"
     },
+    "suggest": {
+        "ext-redis": "Required for RedisStorage driver"
+    },
     "scripts": {
         "test": "vendor/bin/phpunit -c tests/phpunit.xml",
         "test10": "vendor/bin/phpunit -c tests/phpunit10.xml",

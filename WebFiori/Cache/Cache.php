@@ -270,21 +270,15 @@ class Cache {
      * @throws CacheStorageException If storage fails.
      */
     private function storeItem(string $key, $data, int $ttl): void {
-        $secretKey = '';
-        try {
-            $secretKey = KeyManager::getEncryptionKey();
-        } catch (CacheException $e) {
-            $item = new Item($key, $data, $ttl, '');
+        $secretKey = KeyManager::getEncryptionKey();
+        $item = new Item($key, $data, $ttl, $secretKey ?? '');
+
+        if ($secretKey === null) {
             $config = new SecurityConfig();
             $config->setEncryptionEnabled(false);
             $item->setSecurityConfig($config);
-            $item->setPrefix($this->prefix);
-            $this->driver->store($item);
-
-            return;
         }
 
-        $item = new Item($key, $data, $ttl, $secretKey);
         $item->setPrefix($this->prefix);
         $this->driver->store($item);
     }

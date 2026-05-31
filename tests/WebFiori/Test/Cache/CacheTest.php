@@ -16,7 +16,7 @@ class CacheTest extends TestCase {
 
     protected function setUp(): void {
         $testKey = KeyManager::generateKey();
-        $_ENV['CACHE_ENCRYPTION_KEY'] = $testKey;
+        $_ENV['CACHE_KEY'] = $testKey;
         KeyManager::clearCache();
 
         $this->cache = new Cache(new FileStorage(__DIR__ . '/test_cache'));
@@ -26,7 +26,7 @@ class CacheTest extends TestCase {
     protected function tearDown(): void {
         KeyManager::clearCache();
         $this->cache->flush();
-        unset($_ENV['CACHE_ENCRYPTION_KEY']);
+        unset($_ENV['CACHE_KEY']);
     }
 
     /**
@@ -713,7 +713,7 @@ class CacheTest extends TestCase {
      */
     public function testCacheFacadeBasicOperations() {
         $testKey = KeyManager::generateKey();
-        $_ENV['CACHE_ENCRYPTION_KEY'] = $testKey;
+        $_ENV['CACHE_KEY'] = $testKey;
         KeyManager::clearCache();
 
         \WebFiori\Cache\CacheFacade::reset();

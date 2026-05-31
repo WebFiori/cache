@@ -20,7 +20,7 @@ class IntegrationTest extends TestCase {
 
     protected function setUp(): void {
         $testKey = KeyManager::generateKey();
-        $_ENV['CACHE_ENCRYPTION_KEY'] = $testKey;
+        $_ENV['CACHE_KEY'] = $testKey;
         KeyManager::clearCache();
 
         $this->cache = new Cache(new FileStorage(__DIR__ . '/test_integration_cache'));
@@ -30,7 +30,7 @@ class IntegrationTest extends TestCase {
     protected function tearDown(): void {
         KeyManager::clearCache();
         $this->cache->flush();
-        unset($_ENV['CACHE_ENCRYPTION_KEY']);
+        unset($_ENV['CACHE_KEY']);
     }
 
     /**

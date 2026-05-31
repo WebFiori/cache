@@ -4,7 +4,12 @@ on:
   push:
     branches: [ main ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, dev ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Run Tests
@@ -12,6 +17,33 @@ jobs:
     with:
       php-version: '8.4'
       phpunit-config: "tests/phpunit10.xml"
+
+  test-redis:
+    name: Run Redis Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: redis
+          tools: composer
+          coverage: none
+
+      - name: Install Dependencies
+        run: composer install --prefer-source --no-interaction
+
+      - name: Run Redis Tests
+        run: vendor/bin/phpunit -c tests/phpunit10.xml --group redis
 
   code-coverage:
     name: Coverage
@@ -22,6 +54,3 @@ jobs:
       coverage-file: 'php-8.4-coverage.xml'
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-    
-        
-          
