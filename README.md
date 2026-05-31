@@ -45,6 +45,7 @@ This library requires **PHP 8.1 or higher**.
 | <a target="_blank" href="https://github.com/WebFiori/cache/actions/workflows/php82.yaml"><img src="https://github.com/WebFiori/cache/actions/workflows/php82.yaml/badge.svg?branch=main"></a>  |
 | <a target="_blank" href="https://github.com/WebFiori/cache/actions/workflows/php83.yaml"><img src="https://github.com/WebFiori/cache/actions/workflows/php83.yaml/badge.svg?branch=main"></a>  |
 | <a target="_blank" href="https://github.com/WebFiori/cache/actions/workflows/php84.yaml"><img src="https://github.com/WebFiori/cache/actions/workflows/php84.yaml/badge.svg?branch=main"></a>  |
+| <a target="_blank" href="https://github.com/WebFiori/cache/actions/workflows/php85.yaml"><img src="https://github.com/WebFiori/cache/actions/workflows/php85.yaml/badge.svg?branch=main"></a>  |
 
 ## Quick Start
 
