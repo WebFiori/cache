@@ -7,7 +7,7 @@ use WebFiori\Cache\Item;
 use WebFiori\Cache\KeyManager;
 use WebFiori\Cache\Storage;
 
-$_ENV['CACHE_ENCRYPTION_KEY'] = KeyManager::generateKey();
+$_ENV['CACHE_KEY'] = KeyManager::generateKey();
 
 /**
  * A simple in-memory storage driver.

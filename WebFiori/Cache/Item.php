@@ -376,13 +376,13 @@ class Item {
         }
 
         // Fall back to KeyManager
-        try {
-            $encKey = KeyManager::getEncryptionKey();
+        $encKey = KeyManager::getEncryptionKey();
 
+        if ($encKey !== null) {
             return hex2bin($encKey);
-        } catch (Exception $e) {
-            throw new CacheException('No valid encryption key available: '.$e->getMessage());
         }
+
+        throw new CacheException('No valid encryption key available. Set CACHE_KEY environment variable with a 64-character hexadecimal key.');
     }
 
     /**
