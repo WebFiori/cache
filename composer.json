@@ -1,7 +1,7 @@
 {
     "name": "webfiori/cache",
     "description": "A simple caching engine which is highly customizable.",
-    "version": "3.0.1",
+    "version": "3.0.2",
     "keywords": [
         "Cache",
         "File Cache",
