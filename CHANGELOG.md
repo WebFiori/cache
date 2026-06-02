@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.0.2](https://github.com/WebFiori/cache/compare/v3.0.1...v3.0.2) (2026-06-01)
+
+
+### Miscellaneous Chores
+
+* align CI with ecosystem baseline ([e757b37](https://github.com/WebFiori/cache/commit/e757b3709cc08e3c7b02dd30de182f2dd8265637))
+* align CI with ecosystem baseline ([d85b54b](https://github.com/WebFiori/cache/commit/d85b54b16b8c67836f633f1f3bada66fb725d217))
+
 ## [3.0.1](https://github.com/WebFiori/cache/compare/v3.0.0...v3.0.1) (2026-05-31)
 
 
